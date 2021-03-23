@@ -58,7 +58,7 @@ pub fn update_recommendations(
 
     // TODO refactor this to take a closure
     trace.map_batches(|batch| {
-        if batch.lower().iter().find(|t| *(*t) == time_of_interest) != None {
+        if batch.lower().elements().iter().find(|t| *(*t) == time_of_interest) != None {
 
             let mut cursor = batch.cursor();
 
@@ -88,7 +88,8 @@ pub fn update_recommendations(
     });
 
     trace.map_batches(|batch| {
-        if batch.lower().iter().find(|t| *(*t) == time_of_interest) != None {
+
+        if batch.lower().elements().iter().find(|t| *(*t) == time_of_interest) != None {
 
             let mut cursor = batch.cursor();
 
@@ -117,8 +118,9 @@ pub fn update_recommendations(
         }
     });
 
-    trace.distinguish_since(&[]);
-    trace.advance_by(&[time]);
+
+    //trace.distinguish_since(&[]);
+    //trace.advance_by(&[time]);
 }
 
 
