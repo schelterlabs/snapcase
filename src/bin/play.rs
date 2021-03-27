@@ -40,7 +40,8 @@ fn main() {
         thingies_input.advance_to(1);
         thingies_input.flush();
 
-        worker.step_while(|| probe.less_than(thingies_input.time()));
+        //worker.step_while(|| probe.less_than(thingies_input.time()));
+        //println!("Next round");
 
         let stuff2 = vec![(1, 3),  (2, 6)];
 

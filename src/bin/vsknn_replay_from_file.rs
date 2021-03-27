@@ -1,22 +1,22 @@
 extern crate differential_dataflow;
-extern crate serenesia;
+extern crate snapcase;
 extern crate itertools;
 extern crate fnv;
 
 use std::collections::HashMap;
 
 use std::io::prelude::*;
-use std::io::BufWriter;
-use std::fs::File;
-use std::path::Path;
+//use std::io::BufWriter;
+//use std::fs::File;
+//use std::path::Path;
 
 use itertools::Itertools;
 
 use differential_dataflow::input::InputSession;
 
-use serenesia::io;
-use serenesia::vsknn::{vsknn, update_recommendations};
-use serenesia::vsknn::types::{SessionId, ItemId, OrderedSessionItem, Order, Similarity, Scored};
+use snapcase::io;
+use snapcase::vsknn::{vsknn, update_recommendations};
+use snapcase::vsknn::types::{SessionId, ItemId, OrderedSessionItem, Order, Similarity, Scored};
 
 
 fn main() {
@@ -89,8 +89,8 @@ fn main() {
 
         let session_ids: Vec<_> = evolving_sessions.keys().sorted().collect();
 
-        let path = format!("vsknn_differential_predictions-{}.txt", worker.index());
-        let mut _output_file = BufWriter::new(File::create(&Path::new(&path)).unwrap());
+        // let path = format!("vsknn_differential_predictions-{}.txt", worker.index());
+        // let mut _output_file = BufWriter::new(File::create(&Path::new(&path)).unwrap());
 
         for evolving_session_id in session_ids {
             let evolving_session_items = &evolving_sessions[evolving_session_id];

@@ -24,6 +24,7 @@ use differential_dataflow::operators::{Threshold, CountTotal};
 use differential_dataflow::operators::arrange::ArrangeByKey;
 
 use types::{SessionId, ItemId, ItemScore, Trace, OrderedSessionItem};
+use self::timely::progress::frontier::AntichainRef;
 
 
 pub fn update_recommendations(
@@ -44,7 +45,6 @@ pub fn update_recommendations(
     worker.step_while(|| probe.less_than(evolving_sessions_input.time()));
 
     let duration = start.elapsed();
-
     *latency_in_micros = duration.as_micros();
 
     // eprintln!(
@@ -118,12 +118,13 @@ pub fn update_recommendations(
         }
     });
 
+    // TODO Hope this is correct, we might want to do this at more coarse grained intervals
+    let frontier_time = [time];
+    let frontier = AntichainRef::new(&frontier_time);
+    trace.set_physical_compaction(frontier);
+    trace.set_logical_compaction(frontier);
 
-    //trace.distinguish_since(&[]);
-    //trace.advance_by(&[time]);
 }
-
-
 pub fn vsknn<T>(
     worker: &mut Worker<Allocator>,
     historical_sessions_input: &mut InputSession<T, OrderedSessionItem, isize>,
@@ -134,7 +135,6 @@ pub fn vsknn<T>(
 ) -> (ProbeHandle<T>, Trace<SessionId, ItemScore, T, isize>)
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
 
-    // TODO check if it makes sense to manually arrange some collections
     worker.dataflow(|scope| {
 
         let historical_sessions_with_duplicates = historical_sessions_input.to_collection(scope);

@@ -1,5 +1,5 @@
 [package]
-name = "serenesia"
+name = "snapcase"
 version = "0.1.0"
 authors = ["ssc <ssc@apache.org>"]
 edition = "2018"
@@ -16,9 +16,8 @@ path = "src/bin/tifuknn_example.rs"
 name = "play"
 path = "src/bin/play.rs"
 
+# https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]
-#timely = "0.11.1"
-#differential-dataflow = "0.11.0"
 timely = "0.12.0"
 differential-dataflow = "0.12.0"
 abomonation = "0.7.3"
@@ -27,3 +26,6 @@ itertools = "0.9.0"
 fnv = "1.0.2"
 csv = "1.0"
 rand="0.6"
+blas = "0.20"
+openblas-src = "0.9"
+blas-src = { version = "0.7", features = ["openblas"] }

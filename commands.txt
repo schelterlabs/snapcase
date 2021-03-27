@@ -1,0 +1,1 @@
+RUSTFLAGS="-C target-cpu=native" cargo run --release --bin vsknn_replay_from_file -- -w1 datasets/bolcom-clicks-100k_train.txt datasets/bolcom-clicks-100k_test.txt p.txt l.txt 50 5

@@ -1,4 +1,4 @@
-extern crate serenesia;
+extern crate snapcase;
 extern crate timely;
 extern crate differential_dataflow;
 
@@ -28,10 +28,10 @@ fn run_experiment(
 
         let mut interactions_input = InputSession::new();
 
-        let probe = serenesia::itembased::itembased_cf(worker, &mut interactions_input);
+        let probe = snapcase::itembased::itembased_cf(worker, &mut interactions_input);
 
         let mut interactions =
-            serenesia::io::itembased::read_interactions(dataset_file, num_users);
+            snapcase::io::itembased::read_interactions(dataset_file, num_users);
 
         for (user, history) in interactions.iter() {
             if *user as usize % worker.peers() == worker.index() {
