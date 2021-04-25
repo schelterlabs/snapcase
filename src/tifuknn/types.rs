@@ -1,79 +1,81 @@
 extern crate timely;
 extern crate differential_dataflow;
 
-use std::cmp::Ordering;
-
-use differential_dataflow::Hashable;
-use std::hash::Hasher;
 use std::rc::Rc;
+use std::cmp::{Ord, Ordering};
 use differential_dataflow::trace::implementations::ord::OrdValBatch;
 use differential_dataflow::trace::implementations::spine_fueled::Spine;
 use differential_dataflow::operators::arrange::TraceAgent;
+use super::sprs::CsVec;
+use std::hash::{Hash, Hasher};
+use itertools::zip;
 
 pub type Trace<K, V, T, R> = TraceAgent<Spine<K, V, T, R, Rc<OrdValBatch<K, V, T, R>>>>;
 
-#[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash)]
+#[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord, PartialOrd)]
 pub struct Basket {
-    pub seq: usize,
-    pub items: (u32, u32, u32, u32),
+    pub id: usize,
+    //pub items: (u32, u32, u32, u32),
+    pub items: Vec<usize>,
 }
 
 impl Basket {
-    pub fn new(time: usize, items: (u32, u32, u32, u32)) -> Self {
-        Basket { seq: time, items }
+    pub fn new(id: usize, items: Vec<usize>) -> Self {
+        Basket { id, items }
     }
 }
 
-impl Ord for Basket {
+#[derive(Debug,Abomonation,Clone)]
+pub struct Embedding {
+    pub id: usize,
+    // Abomonation cannot handle the CsVecBase, so we work with the raw sparse vector here
+    pub dim: usize,
+    pub indices: Vec<usize>,
+    pub data: Vec<f64>,
+}
+
+impl Embedding {
+    pub fn new(id: usize, vector: CsVec<f64>) -> Self {
+        let dim = vector.dim();
+        let (indices, data) = vector.into_raw_storage();
+        Embedding { id, dim, indices, data }
+    }
+
+    pub fn into_sparse_vector(self) -> CsVec<f64> {
+        CsVec::new(self.dim, self.indices, self.data)
+    }
+
+    pub fn clone_into_dense_vector(&self) -> Vec<f64> {
+        let mut dense_vector = vec![0.0; self.dim];
+        for (index, value) in zip(&self.indices, &self.data) {
+            dense_vector[*index] = *value;
+        }
+        dense_vector
+    }
+}
+
+impl PartialEq for Embedding {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Embedding {}
+
+impl Ord for Embedding {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.seq.cmp(&other.seq)
+        self.id.cmp(&other.id)
     }
 }
 
-impl PartialOrd for Basket {
+impl PartialOrd for Embedding {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[derive(Abomonation, Debug, Clone)]
-pub struct ProjectionMatrix {
-    pub table_index: usize,
-    pub weights: Vec<f64>,
-}
-
-impl ProjectionMatrix {
-    pub fn new(table_index: usize, weights: Vec<f64>) -> ProjectionMatrix {
-        ProjectionMatrix { table_index, weights }
-    }
-}
-
-impl PartialEq for ProjectionMatrix {
-    fn eq(&self, other: &Self) -> bool {
-        self.table_index == other.table_index
-    }
-}
-
-impl Eq for ProjectionMatrix {}
-
-
-impl PartialOrd for ProjectionMatrix {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.table_index.cmp(&other.table_index))
-    }
-}
-
-impl Ord for ProjectionMatrix {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
-impl Hashable for ProjectionMatrix {
-    type Output = u64;
-    fn hashed(&self) -> u64 {
-        let mut h: ::fnv::FnvHasher = Default::default();
-        h.write_usize(self.table_index);
-        h.finish()
+impl Hash for Embedding {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.id)
     }
 }
