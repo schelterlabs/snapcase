@@ -23,9 +23,11 @@ use differential_dataflow::lattice::Lattice;
 
 use differential_dataflow::operators::{Reduce,CountTotal};
 
-use rand::thread_rng;
+//use rand::thread_rng;
 use crate::tifuknn::aggregation::{group_vector, user_vector};
 
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use rand::seq::SliceRandom;
 
 const GROUP_SIZE: isize = 7;
@@ -84,8 +86,10 @@ pub fn tifu_knn<T>(
         let permutations: Vec<Vec<usize>> = (0..(BANDS * BUCKEY_KEY_LENGTH))
             .map(|_| {
                 let mut permutation: Vec<usize> = (0..num_items).collect();
+                let mut rng = StdRng::seed_from_u64(42);
                 // TODO we must consistently seed this rng once we run with multiple workers
-                permutation.shuffle(&mut thread_rng());
+                //permutation.shuffle(&mut thread_rng());
+                permutation.shuffle(&mut rng);
                 permutation
             })
             .collect();
@@ -114,7 +118,7 @@ pub fn tifu_knn<T>(
         bucketed_user_vectors
             .map(|(key, _)| key)
             .count_total()
-            .inspect(|x| println!("BUCKET {:?}", x))
+            //.inspect(|x| println!("BUCKET {:?}", x))
             .probe()
 
 

@@ -56,35 +56,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
-name = "blas"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4b3b6399f2fe6e70f780b06e278a64770aae273e0005c3860f94fc2f5f01ba7"
-dependencies = [
- "blas-sys",
- "libc",
- "num-complex 0.2.4",
-]
-
-[[package]]
-name = "blas-src"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "179fa99e83340433f9fe61b22cc88db2e310bb93923daac81795610f750208fb"
-dependencies = [
- "openblas-src",
-]
-
-[[package]]
-name = "blas-sys"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13b1b279ceb25d7c4faaea95a5f7addbe7d8c34f9462044bd8e630cebcfc2440"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "bstr"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -394,12 +365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "openblas-src"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84629d1d4f9f40d3f9e4756dae33c6af50d3c2fcc186558dac65bf55141ade6b"
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -643,13 +608,10 @@ version = "0.1.0"
 dependencies = [
  "abomonation",
  "abomonation_derive",
- "blas",
- "blas-src",
  "csv",
  "differential-dataflow",
  "fnv",
  "itertools",
- "openblas-src",
  "rand",
  "sprs",
  "timely",
