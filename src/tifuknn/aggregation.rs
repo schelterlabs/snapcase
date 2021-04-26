@@ -17,12 +17,13 @@ pub fn group_vector(
     baskets_and_multiplicities: &[(&Basket, isize)],
     group_size: isize,
     r: f64,
+    num_items: usize,
 ) -> Embedding {
 
     // The last group might not be filled, so we have to "shift" the baskets to the right
     let correction_offset = group_size - baskets_and_multiplicities.len() as isize;
 
-    let mut embedding: CsVec<f64> =  CsVec::empty(4);
+    let mut embedding: CsVec<f64> =  CsVec::empty(num_items);
 
     for (basket, multiplicity) in baskets_and_multiplicities {
         assert!(*multiplicity > 0);
@@ -32,7 +33,7 @@ pub fn group_vector(
         let contribution = decay / group_size as f64;
 
         let basket_as_vector = CsVec::new(
-            4,
+            num_items,
             basket.items.clone(),
             vec![contribution; basket.items.len()]
         );
@@ -40,7 +41,6 @@ pub fn group_vector(
         embedding = embedding.add(basket_as_vector);
     }
 
-    println!("{:?}", embedding);
     Embedding::new(group, embedding)
 }
 
@@ -48,9 +48,10 @@ pub fn user_vector(
     user: u32,
     group_vectors_and_multiplicities: &[(&Embedding, isize)],
     r: f64,
+    num_items: usize,
 ) -> Embedding {
 
-    let mut embedding: CsVec<f64> =  CsVec::empty(4);
+    let mut embedding: CsVec<f64> =  CsVec::empty(num_items);
 
     let num_groups = group_vectors_and_multiplicities.len() as isize;
 
@@ -64,7 +65,7 @@ pub fn user_vector(
         let multiplier = r_g_m_minus_i / num_groups as f64;
 
         // TODO get rid of the copy here
-        let mut group_embedding: CsVec<f64> = (*group_vector).clone().into_sparse_vector();
+        let mut group_embedding: CsVec<f64> = (*group_vector).clone().into_sparse_vector(num_items);
 
         group_embedding.mul_assign(multiplier);
         embedding = embedding + &group_embedding;

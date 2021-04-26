@@ -4,9 +4,9 @@ extern crate sprs;
 
 pub mod types;
 pub mod aggregation;
-pub mod projection;
+pub mod minhash;
 
-use crate::tifuknn::types::Basket;
+use crate::tifuknn::types::{Basket, BucketKey};
 
 //use timely::dataflow::operators::probe::Handle;
 //use timely::dataflow::operators::Probe;
@@ -21,28 +21,28 @@ use differential_dataflow::input::InputSession;
 use differential_dataflow::lattice::Lattice;
 //use differential_dataflow::operators::arrange::ArrangeByKey;
 
-use differential_dataflow::operators::Reduce;
+use differential_dataflow::operators::{Reduce,CountTotal};
 
-use rand::distributions::Normal;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 use crate::tifuknn::aggregation::{group_vector, user_vector};
 
-const NUM_HASH_DIMENSIONS: usize = 5;
-const NUM_FEATURES: usize = 4;
-const GROUP_SIZE: isize = 2;
+use rand::seq::SliceRandom;
+
+const GROUP_SIZE: isize = 7;
+const BUCKEY_KEY_LENGTH: usize = 1;
+const BANDS: usize = 6;
 
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
     baskets_input: &mut InputSession<T, (u32, Basket), isize>,
+    num_items: usize,
 //) -> (ProbeHandle<T>, Trace<u32, (usize, (u64, u64, u64, u64)), T, isize>)
 )   -> ProbeHandle<T>
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
 
-    //let mut rng = thread_rng();
-    //let distribution = Normal::new(0.0, 1.0 / NUM_HASH_DIMENSIONS as f64);
-
-
     worker.dataflow(|scope| {
+
+        let num_items = num_items.clone();
 
         let baskets = baskets_input.to_collection(scope);
         let group_vectors = baskets
@@ -54,45 +54,73 @@ pub fn tifu_knn<T>(
                 }
             })
             .map(|(user, (group, basket))| ((user, group), basket))
-            .reduce(|(_user, group), baskets_and_multiplicities, out| {
-                let group_vector = group_vector(*group as usize, baskets_and_multiplicities, GROUP_SIZE, 0.9);
-                // TODO we might have to enforce group vectors to be unique
+            .reduce(move |(_user, group), baskets_and_multiplicities, out| {
+                let group_vector = group_vector(
+                    *group as usize,
+                    baskets_and_multiplicities,
+                    GROUP_SIZE,
+                    0.7,
+                    num_items.clone(),
+                );
+
                 out.push((group_vector, *group));
             })
-            .map(|((user, _group), group_vector)| (user, group_vector))
-            .inspect(|x| println!("Group vector {:?}", x));
+            .map(|((user, _), group_vector)| (user, group_vector))
+            ;//.inspect(|x| println!("Group vector {:?}", x));
 
         let user_vectors = group_vectors
-            .reduce(|user, vectors_and_multiplicities, out| {
-                let user_vector = user_vector(*user, vectors_and_multiplicities, 0.5);
+            .reduce(move |user, vectors_and_multiplicities, out| {
+                let user_vector = user_vector(
+                    *user,
+                    vectors_and_multiplicities,
+                    0.9,
+                    num_items.clone()
+                );
+
                 out.push((user_vector, 1))
             })
-            .inspect(|x| println!("User vector {:?}", x));
+            ;//.inspect(|x| println!("User vector {:?}", x));
 
-        let mut random_projection_matrix: Vec<f64> =
-            Vec::with_capacity(NUM_HASH_DIMENSIONS * NUM_FEATURES);
-
-        // TODO we must consistently seed this rng once we run with multiple workers
-        let mut rng = thread_rng();
-        let distribution = Normal::new(0.0, 1.0 / NUM_HASH_DIMENSIONS as f64);
-
-        for _ in 0..(NUM_HASH_DIMENSIONS * NUM_FEATURES) {
-            let sampled: f64 = rng.sample(distribution);
-            random_projection_matrix.push(sampled);
-        }
+        let permutations: Vec<Vec<usize>> = (0..(BANDS * BUCKEY_KEY_LENGTH))
+            .map(|_| {
+                let mut permutation: Vec<usize> = (0..num_items).collect();
+                // TODO we must consistently seed this rng once we run with multiple workers
+                permutation.shuffle(&mut thread_rng());
+                permutation
+            })
+            .collect();
 
         let bucketed_user_vectors = user_vectors
-            .map(move |(user, user_vector)| {
-                // TODO we might have to normalise the vectors for this to give us valid results
-                let key = projection::random_projection(&random_projection_matrix, &user_vector);
-                (key, (user, user_vector))
+            .flat_map(move |(user, user_vector)| {
+                let hashes = minhash::minhash(
+                    &permutations,
+                    &user_vector.indices,
+                    num_items.clone()
+                );
+
+                (0..BANDS).map(move |band| {
+                    let start_index = band * BUCKEY_KEY_LENGTH;
+                    let end_index = start_index + BUCKEY_KEY_LENGTH;
+                    let hashes_for_bucket = hashes[start_index..end_index].to_vec();
+
+                    let key = BucketKey::new(hashes_for_bucket);
+                    (key, (user.clone(), user_vector.clone()))
+                })
             });
-        //
-        // // TODO now we can do a reduce per bucket to compute the actual recommendations
-        //
+
+        // TODO now we can proceed to compute the actual recommendations
+
+
         bucketed_user_vectors
-            .inspect(|x| println!("BUCKETING {:?}", x))
+            .map(|(key, _)| key)
+            .count_total()
+            .inspect(|x| println!("BUCKET {:?}", x))
             .probe()
+
+
+        // bucketed_user_vectors
+        //     .inspect(|x| println!("BUCKETING {:?}", x))
+        //     .probe()
 
 
         /*

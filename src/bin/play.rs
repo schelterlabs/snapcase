@@ -1,57 +1,94 @@
-extern crate timely;
-extern crate differential_dataflow;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
-use differential_dataflow::input::InputSession;
-use differential_dataflow::operators::{Reduce};
+fn minhash(permutations: &[Vec<usize>], set: &[usize], num_items: usize) -> Vec<usize> {
 
+    let mut hashes = Vec::with_capacity(num_items);
 
-fn main() {
-    timely::execute_from_args(std::env::args(), move |worker| {
-
-        let mut thingies_input: InputSession<_, (u32, u32),_> = InputSession::new();
-
-        let probe = worker.dataflow(|scope| {
-
-            let thingies = thingies_input.to_collection(scope);
-
-            let groups = thingies.reduce(|_, values, out| {
-
-                for (item, multiplicity) in values {
-                    let group = (*multiplicity - 1) / 2;
-                    println!("{} {}", *item, group);
-                    out.push(((group, *item.clone()), 1));
-                }
-            });
-
-            groups
-                .map(|(basket, (group, item))| (group, (basket, item)))
-                .inspect(|x| println!("INSPECT {:?}", x))
-                .probe()
-        });
-
-        thingies_input.advance_to(1);
-
-        thingies_input.update((1, 1), 1);
-        thingies_input.update((1, 2), 2);
-        thingies_input.update((1, 3), 3);
-        thingies_input.update((1, 4), 4);
-
-        thingies_input.advance_to(2);
-        thingies_input.flush();
-
-        worker.step_while(|| probe.less_than(thingies_input.time()));
-
-        thingies_input.update((1, 3), -3);
-        thingies_input.update((1, 4), -1);
-
-        thingies_input.advance_to(3);
-        thingies_input.flush();
-
-        worker.step_while(|| probe.less_than(thingies_input.time()));
-
-
-    }).unwrap();
+    for permutation in permutations {
+        'search: for index in permutation {
+            if set.contains(index) {
+                hashes.push(*index);
+                break 'search;
+            }
+        }
+    }
+    assert_eq!(hashes.len(), permutations.len());
+    hashes
 }
+
+fn main () {
+
+    let num_projections = 2;
+    let num_items = 7;
+
+    let permutations: Vec<Vec<usize>> = (0..num_projections)
+        .map(|_| {
+            let mut permutation: Vec<usize> = (0..num_items).collect();
+            permutation.shuffle(&mut thread_rng());
+            permutation
+        })
+        .collect();
+
+    //let mut pi: Vec<usize> = (0..num_items).collect();
+    //pi.shuffle(&mut thread_rng());
+    println!("{:?}", permutations);
+
+    let vec1 = vec![1, 3, 5, 6];//0, 1, 0, 1, 0, 1, 1];
+    let vec2 = vec![1, 5, 6];//[0, 1, 0, 0, 0, 1, 1];
+    let vec3 = vec![0, 4];//1, 0, 0, 0, 1, 0, 0];
+
+    println!("{:?} -> {:?}", vec1, minhash(&permutations, &vec1, num_items));
+    println!("{:?} -> {:?}", vec2, minhash(&permutations, &vec2, num_items));
+    println!("{:?} -> {:?}", vec3, minhash(&permutations, &vec3, num_items));
+}
+// fn main() {
+//     timely::execute_from_args(std::env::args(), move |worker| {
+//
+//         let mut thingies_input: InputSession<_, (u32, u32),_> = InputSession::new();
+//
+//         let probe = worker.dataflow(|scope| {
+//
+//             let thingies = thingies_input.to_collection(scope);
+//
+//             let groups = thingies.reduce(|_, values, out| {
+//
+//                 for (item, multiplicity) in values {
+//                     let group = (*multiplicity - 1) / 2;
+//                     println!("{} {}", *item, group);
+//                     out.push(((group, *item.clone()), 1));
+//                 }
+//             });
+//
+//             groups
+//                 .map(|(basket, (group, item))| (group, (basket, item)))
+//                 .inspect(|x| println!("INSPECT {:?}", x))
+//                 .probe()
+//         });
+//
+//         thingies_input.advance_to(1);
+//
+//         thingies_input.update((1, 1), 1);
+//         thingies_input.update((1, 2), 2);
+//         thingies_input.update((1, 3), 3);
+//         thingies_input.update((1, 4), 4);
+//
+//         thingies_input.advance_to(2);
+//         thingies_input.flush();
+//
+//         worker.step_while(|| probe.less_than(thingies_input.time()));
+//
+//         thingies_input.update((1, 3), -3);
+//         thingies_input.update((1, 4), -1);
+//
+//         thingies_input.advance_to(3);
+//         thingies_input.flush();
+//
+//         worker.step_while(|| probe.less_than(thingies_input.time()));
+//
+//
+//     }).unwrap();
+// }
 
 // fn main() {
 //     timely::execute_from_args(std::env::args(), move |worker| {
