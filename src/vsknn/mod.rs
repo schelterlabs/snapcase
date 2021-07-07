@@ -31,6 +31,7 @@ pub fn update_recommendations(
     recommendations: &mut HashMap<SessionId, HashMap<ItemId, f64>>,
     time: usize,
     evolving_sessions_input: &mut InputSession<usize, (SessionId, ItemId), isize>,
+    historical_sessions_input: &mut InputSession<usize, OrderedSessionItem, isize>,
     worker: &mut Worker<Allocator>,
     probe: &Handle<usize>,
     trace: &mut Trace<SessionId, ItemScore, usize, isize>,
@@ -41,8 +42,10 @@ pub fn update_recommendations(
 
     evolving_sessions_input.advance_to(time);
     evolving_sessions_input.flush();
+    historical_sessions_input.advance_to(time);
+    historical_sessions_input.flush();
 
-    worker.step_while(|| probe.less_than(evolving_sessions_input.time()));
+    worker.step_while(|| probe.less_than(evolving_sessions_input.time()) && probe.less_than(historical_sessions_input.time()));
 
     let duration = start.elapsed();
     *latency_in_micros = duration.as_micros();
@@ -118,7 +121,7 @@ pub fn update_recommendations(
         }
     });
 
-    // TODO Hope this is correct, we might want to do this at more coarse grained intervals
+    // TODO We might want to do this at more coarse grained intervals
     let frontier_time = [time];
     let frontier = AntichainRef::new(&frontier_time);
     trace.set_physical_compaction(frontier);

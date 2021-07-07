@@ -1,5 +1,3 @@
-extern crate blas;
-extern crate openblas_src;
 extern crate timely;
 extern crate differential_dataflow;
 extern crate sprs;

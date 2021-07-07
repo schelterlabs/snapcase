@@ -6,7 +6,7 @@ pub mod types;
 pub mod aggregation;
 pub mod minhash;
 
-use crate::tifuknn::types::{Basket, BucketKey};
+use crate::tifuknn::types::{Basket, BucketKey, Embedding};
 
 //use timely::dataflow::operators::probe::Handle;
 //use timely::dataflow::operators::Probe;
@@ -21,7 +21,7 @@ use differential_dataflow::input::InputSession;
 use differential_dataflow::lattice::Lattice;
 //use differential_dataflow::operators::arrange::ArrangeByKey;
 
-use differential_dataflow::operators::{Reduce,CountTotal};
+use differential_dataflow::operators::{Reduce};//,CountTotal};
 
 //use rand::thread_rng;
 use crate::tifuknn::aggregation::{group_vector, user_vector};
@@ -30,7 +30,10 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
 
-const GROUP_SIZE: isize = 7;
+use self::sprs::CsVec;
+use std::ops::{Add, MulAssign};
+
+const GROUP_SIZE: isize = 2;
 const BUCKEY_KEY_LENGTH: usize = 1;
 const BANDS: usize = 6;
 
@@ -68,7 +71,7 @@ pub fn tifu_knn<T>(
                 out.push((group_vector, *group));
             })
             .map(|((user, _), group_vector)| (user, group_vector))
-            ;//.inspect(|x| println!("Group vector {:?}", x));
+            .inspect(|x| println!("Group vector {:?}", x));
 
         let user_vectors = group_vectors
             .reduce(move |user, vectors_and_multiplicities, out| {
@@ -81,7 +84,7 @@ pub fn tifu_knn<T>(
 
                 out.push((user_vector, 1))
             })
-            ;//.inspect(|x| println!("User vector {:?}", x));
+            .inspect(|x| println!("User vector {:?}", x));
 
         let permutations: Vec<Vec<usize>> = (0..(BANDS * BUCKEY_KEY_LENGTH))
             .map(|_| {
@@ -114,13 +117,64 @@ pub fn tifu_knn<T>(
 
         // TODO now we can proceed to compute the actual recommendations
 
+        // STEP 1: reduce over buckets, emit user vector + sum of bucket
+        // STEP 2: group by user, compute recommendation vector
 
-        bucketed_user_vectors
-            .map(|(key, _)| key)
-            .count_total()
-            //.inspect(|x| println!("BUCKET {:?}", x))
+        let pre_aggregated_vectors = bucketed_user_vectors
+            .reduce(move |_key, users_and_user_vectors, out| {
+
+                let mut sum_of_bucket: CsVec<f64> =  CsVec::empty(num_items);
+
+                for ((_, user_vector), _) in users_and_user_vectors {
+                    // Remove copy & allocations here
+                    sum_of_bucket = sum_of_bucket.add((*user_vector).clone().into_sparse_vector(num_items));
+                }
+
+                // This is a little bit of a hack, could be dangerous
+                let embedding_sum = Embedding::new(users_and_user_vectors.len(), sum_of_bucket);
+
+                for ((user, user_vector), _) in users_and_user_vectors {
+                    out.push(((user.clone(), user_vector.clone(), embedding_sum.clone()), 1));
+                }
+            })
+            .map(|(_bucket_key, (user, user_vector, bucket_sum))| {
+                (user, (user_vector, bucket_sum))
+            })
+            .inspect(|x| println!("PREAGG {:?}", x));
+
+        // Might make sense to join use_vectors with bucket sums instead of replicating the user vectors
+        let recommendations = pre_aggregated_vectors
+            .reduce(move |user, user_vectors_and_bucket_sums, out| {
+
+                let mut neighbor_vector: CsVec<f64> =  CsVec::empty(num_items);
+
+                // Weighted sum of bucket vectors
+                for ((_, bucket_sum ), _) in user_vectors_and_bucket_sums {
+                    // Hack
+                    let weight = 1.0 / bucket_sum.id as f64;
+                    let mut bucket_contribution = bucket_sum.clone().into_sparse_vector(num_items);
+                    bucket_contribution.mul_assign(weight);
+                    neighbor_vector = neighbor_vector + &bucket_contribution;
+                }
+
+
+                // TODO Subtract user vectors for correction
+                // TODO Final recommendation as linear combination of user vector and neighbor vector
+
+                let recommendation = Embedding::new(*user as usize, neighbor_vector);
+
+                out.push((recommendation, 1));
+            });
+
+        // bucketed_user_vectors
+        //     .map(|(key, _)| key)
+        //     .count_total()
+        //     .inspect(|x| println!("BUCKET {:?}", x))
+        //     .probe()
+
+        recommendations
+            .inspect(|x| println!("RECO {:?}", x))
             .probe()
-
 
         // bucketed_user_vectors
         //     .inspect(|x| println!("BUCKETING {:?}", x))

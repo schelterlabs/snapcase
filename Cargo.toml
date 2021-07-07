@@ -9,6 +9,10 @@ name = "vsknn_replay_from_file"
 path = "src/bin/vsknn_replay_from_file.rs"
 
 [[bin]]
+name = "vsknn_experiments"
+path = "src/bin/vsknn_experiments.rs"
+
+[[bin]]
 name = "tifuknn_replay_from_file"
 path = "src/bin/tifuknn_replay_from_file.rs"
 

@@ -109,7 +109,11 @@ impl Eq for UnsafeF64 {}
 
 impl Ord for UnsafeF64 {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.value.partial_cmp(&other.value).unwrap()
+        let ordering = self.value.partial_cmp(&other.value);
+        match ordering {
+            Some(an_ordering) => an_ordering,
+            None => Ordering::Less,
+        }
     }
 }
 

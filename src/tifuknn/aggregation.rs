@@ -23,12 +23,13 @@ pub fn group_vector(
     // The last group might not be filled, so we have to "shift" the baskets to the right
     let correction_offset = group_size - baskets_and_multiplicities.len() as isize;
 
-    let mut embedding: CsVec<f64> =  CsVec::empty(num_items);
+    let mut embedding: CsVec<f64> = CsVec::empty(num_items);
 
     for (basket, multiplicity) in baskets_and_multiplicities {
         assert!(*multiplicity > 0);
 
         let index = index(*multiplicity, group_size) + correction_offset;
+        println!("GROUP: {:?} {:?} {:?} - {:?}", r, group_size, index, basket.items);
         let decay = r.powi((&group_size - index) as i32);
         let contribution = decay / group_size as f64;
 
@@ -63,6 +64,8 @@ pub fn user_vector(
         let m_minus_i = (&num_groups - index) as i32;
         let r_g_m_minus_i = r.powi(m_minus_i);
         let multiplier = r_g_m_minus_i / num_groups as f64;
+
+        println!("USER: {:?} {:?} {:?} - {:?}", r, num_groups, index, group_vector);
 
         // TODO get rid of the copy here
         let mut group_embedding: CsVec<f64> = (*group_vector).clone().into_sparse_vector(num_items);

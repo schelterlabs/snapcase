@@ -82,7 +82,7 @@ fn main() {
             historical_sessions_input.insert((*session, (*item, Order::new(*order))));
         }
 
-        historical_sessions_input.close();
+        //historical_sessions_input.close();
 
         let mut recommmendations: HashMap<SessionId, HashMap<ItemId, f64>> = HashMap::new();
         let mut time = 0;
@@ -124,6 +124,7 @@ fn main() {
                     &mut recommmendations,
                     time,
                     &mut evolving_sessions_input,
+                    &mut historical_sessions_input,
                     worker,
                     &probe,
                     &mut trace,
