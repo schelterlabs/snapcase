@@ -24,6 +24,10 @@ path = "src/bin/tifuknn_example.rs"
 name = "play"
 path = "src/bin/play.rs"
 
+[[bin]]
+name = "play2"
+path = "src/bin/play2.rs"
+
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]
 timely = "0.12.0"
@@ -38,3 +42,4 @@ rand="0.6"
 #openblas-src = "0.9"
 #blas-src = { version = "0.7", features = ["openblas"] }
 sprs = "0.10.0"
+minhash = { path = "../rust-minhash" }

@@ -1,3 +1,4 @@
+.DS_Store
 rust_impl/target
 rust_impl/Cargo.lock
 rust_impl/vsknn_differential_predictions*.txt

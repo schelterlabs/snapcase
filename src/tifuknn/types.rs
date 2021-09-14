@@ -70,11 +70,12 @@ impl Embedding {
 
 #[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]
 pub struct BucketKey {
-    pub hashes: Vec<usize>,
+    pub index: usize,
+    pub hashes: Vec<u64>,
 }
 
 impl BucketKey {
-    pub(crate) fn new(hashes: Vec<usize>) -> Self {
-        Self { hashes }
+    pub(crate) fn new(index: usize, hashes: Vec<u64>) -> Self {
+        Self { index, hashes }
     }
 }

@@ -1,10 +1,10 @@
 extern crate timely;
 extern crate differential_dataflow;
 extern crate sprs;
+extern crate minhash;
 
 pub mod types;
 pub mod aggregation;
-pub mod minhash;
 
 use crate::tifuknn::types::{Basket, BucketKey, Embedding};
 
@@ -19,23 +19,25 @@ use timely::order::TotalOrder;
 
 use differential_dataflow::input::InputSession;
 use differential_dataflow::lattice::Lattice;
-//use differential_dataflow::operators::arrange::ArrangeByKey;
+use differential_dataflow::operators::arrange::ArrangeByKey;
 
-use differential_dataflow::operators::{Reduce};//,CountTotal};
+use differential_dataflow::operators::{Reduce, Join};
 
-//use rand::thread_rng;
 use crate::tifuknn::aggregation::{group_vector, user_vector};
-
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rand::seq::SliceRandom;
 
 use self::sprs::CsVec;
 use std::ops::{Add, MulAssign};
+use std::cmp;
 
-const GROUP_SIZE: isize = 2;
-const BUCKEY_KEY_LENGTH: usize = 1;
-const BANDS: usize = 6;
+use minhash::datasketch_minhash::DataSketchMinHash;
+use self::differential_dataflow::operators::Threshold;
+
+// TODO these should not be hardcoded, we need a params object and must also include the r's
+const GROUP_SIZE: isize = 7;
+const BUCKEY_KEY_LENGTH: usize = 3;
+const BANDS: usize = 426;
+const K: usize = 300;
+const ALPHA: f64 = 0.7;
 
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
@@ -64,122 +66,125 @@ pub fn tifu_knn<T>(
                     *group as usize,
                     baskets_and_multiplicities,
                     GROUP_SIZE,
-                    0.7,
+                    0.9,
                     num_items.clone(),
                 );
 
                 out.push((group_vector, *group));
             })
-            .map(|((user, _), group_vector)| (user, group_vector))
-            .inspect(|x| println!("Group vector {:?}", x));
+            .map(|((user, _), group_vector)| (user, group_vector));
+            //.inspect(|x| println!("Group vector {:?}", x));
 
         let user_vectors = group_vectors
             .reduce(move |user, vectors_and_multiplicities, out| {
                 let user_vector = user_vector(
                     *user,
                     vectors_and_multiplicities,
-                    0.9,
+                    0.7,
                     num_items.clone()
                 );
 
                 out.push((user_vector, 1))
-            })
-            .inspect(|x| println!("User vector {:?}", x));
-
-        let permutations: Vec<Vec<usize>> = (0..(BANDS * BUCKEY_KEY_LENGTH))
-            .map(|_| {
-                let mut permutation: Vec<usize> = (0..num_items).collect();
-                let mut rng = StdRng::seed_from_u64(42);
-                // TODO we must consistently seed this rng once we run with multiple workers
-                //permutation.shuffle(&mut thread_rng());
-                permutation.shuffle(&mut rng);
-                permutation
-            })
-            .collect();
+            });
+            //.inspect(|x| println!("User vector {:?}", x));
 
         let bucketed_user_vectors = user_vectors
             .flat_map(move |(user, user_vector)| {
-                let hashes = minhash::minhash(
-                    &permutations,
-                    &user_vector.indices,
-                    num_items.clone()
-                );
 
-                (0..BANDS).map(move |band| {
-                    let start_index = band * BUCKEY_KEY_LENGTH;
+                // TODO use benjamin's params
+                let mut hasher = DataSketchMinHash::new(BANDS * BUCKEY_KEY_LENGTH, Some(42));
+
+                for index in user_vector.indices.iter() {
+                    hasher.update(index);
+                }
+
+                let hashes = hasher.hash_values.0.to_vec();
+
+
+                (0..BANDS).map(move |band_index| {
+                    let start_index = band_index * BUCKEY_KEY_LENGTH;
                     let end_index = start_index + BUCKEY_KEY_LENGTH;
                     let hashes_for_bucket = hashes[start_index..end_index].to_vec();
 
-                    let key = BucketKey::new(hashes_for_bucket);
-                    (key, (user.clone(), user_vector.clone()))
+                    let key = BucketKey::new(band_index, hashes_for_bucket);
+                    (key, user.clone())
                 })
             });
 
-        // TODO now we can proceed to compute the actual recommendations
-
-        // STEP 1: reduce over buckets, emit user vector + sum of bucket
-        // STEP 2: group by user, compute recommendation vector
-
-        let pre_aggregated_vectors = bucketed_user_vectors
-            .reduce(move |_key, users_and_user_vectors, out| {
-
-                let mut sum_of_bucket: CsVec<f64> =  CsVec::empty(num_items);
-
-                for ((_, user_vector), _) in users_and_user_vectors {
-                    // Remove copy & allocations here
-                    sum_of_bucket = sum_of_bucket.add((*user_vector).clone().into_sparse_vector(num_items));
-                }
-
-                // This is a little bit of a hack, could be dangerous
-                let embedding_sum = Embedding::new(users_and_user_vectors.len(), sum_of_bucket);
-
-                for ((user, user_vector), _) in users_and_user_vectors {
-                    out.push(((user.clone(), user_vector.clone(), embedding_sum.clone()), 1));
-                }
+        let cooccurring_users = bucketed_user_vectors
+            .join(&bucketed_user_vectors)
+            .flat_map(|(_bucket_key, (user_a, user_b))| { // TODO maybe we should do this later?
+                [(user_a, user_b), (user_b, user_a)]
             })
-            .map(|(_bucket_key, (user, user_vector, bucket_sum))| {
-                (user, (user_vector, bucket_sum))
-            })
-            .inspect(|x| println!("PREAGG {:?}", x));
+            .distinct();
 
-        // Might make sense to join use_vectors with bucket sums instead of replicating the user vectors
-        let recommendations = pre_aggregated_vectors
-            .reduce(move |user, user_vectors_and_bucket_sums, out| {
+        // Manual arrangement due to use in multiple joins, maybe we can use delta joins here?
+        let arranged_user_vectors = user_vectors.arrange_by_key();
 
-                let mut neighbor_vector: CsVec<f64> =  CsVec::empty(num_items);
-
-                // Weighted sum of bucket vectors
-                for ((_, bucket_sum ), _) in user_vectors_and_bucket_sums {
-                    // Hack
-                    let weight = 1.0 / bucket_sum.id as f64;
-                    let mut bucket_contribution = bucket_sum.clone().into_sparse_vector(num_items);
-                    bucket_contribution.mul_assign(weight);
-                    neighbor_vector = neighbor_vector + &bucket_contribution;
-                }
-
-
-                // TODO Subtract user vectors for correction
-                // TODO Final recommendation as linear combination of user vector and neighbor vector
-
-                let recommendation = Embedding::new(*user as usize, neighbor_vector);
-
-                out.push((recommendation, 1));
+        let cooccurring_users_with_left_user_vectors = arranged_user_vectors
+            .join_map(&cooccurring_users, |user_a, user_vector_a, user_b| {
+                (*user_b, (*user_a, user_vector_a.clone()))
             });
 
-        // bucketed_user_vectors
-        //     .map(|(key, _)| key)
-        //     .count_total()
-        //     .inspect(|x| println!("BUCKET {:?}", x))
-        //     .probe()
+        let cooccurring_users_with_user_vectors = arranged_user_vectors
+            .join_map(&cooccurring_users_with_left_user_vectors,
+                      |user_b, user_vector_b, (user_a, user_vector_a)| {
+                          ((*user_a, user_vector_a.clone()), (*user_b, user_vector_b.clone()))
+                      });
+
+        let recommendations = cooccurring_users_with_user_vectors
+            .reduce(move |(user_a, user_vector_a), users_b_vectors_mults, out| {
+
+                let num_items = num_items.clone();
+
+                let indices_a = &user_vector_a.indices;
+                // TODO identify top-k neighbors, this should use a heap to reduce memory
+                let mut similarities = Vec::with_capacity(users_b_vectors_mults.len());
+
+                for (index, ((_user_b, user_vector_b), _)) in users_b_vectors_mults.iter().enumerate() {
+                    let indices_b = &user_vector_b.indices;
+                    let mut intersection = 0;
+                    // TODO this can be much faster as the indices should be sorted
+                    for index_a in indices_a {
+                        if indices_b.contains(&index_a) {
+                            intersection += 1;
+                        }
+                    }
+                    let jaccard_similarity = intersection as f64 /
+                        (indices_a.len() + indices_b.len() - intersection) as f64;
+                    similarities.push((index, jaccard_similarity))
+                }
+
+                // We like to live dangerous
+                similarities.sort_by(|(_, sim_a), (_, sim_b)| sim_b.partial_cmp(sim_a).unwrap());
+
+                // TODO skip neighbor identification if we have <= K other vectors here!
+                let num_neighbors = cmp::min(similarities.len(), K);
+
+                let mut sum_of_neighbors: CsVec<f64> =  CsVec::empty(num_items);
+                for (index, _similarity) in similarities.iter().take(num_neighbors) {
+                    let ((_, other_user_vector), _) = users_b_vectors_mults.get(*index).unwrap();
+                    // Remove copy & allocations here
+                    sum_of_neighbors = sum_of_neighbors.add(
+                        (*other_user_vector).clone().into_sparse_vector(num_items));
+                }
+
+                let mut own_vector = user_vector_a.clone().into_sparse_vector(num_items);
+                own_vector.mul_assign(ALPHA);
+
+                let neighbor_factor = (1.0 - ALPHA) * (1.0 / num_neighbors as f64);
+                sum_of_neighbors.mul_assign(neighbor_factor);
+
+                let recommendations =
+                    Embedding::new(*user_a as usize, own_vector.add(sum_of_neighbors));
+
+                out.push((recommendations, 1));
+            })
+            .map(|((user, _), recommendations)| (user, recommendations));
 
         recommendations
-            .inspect(|x| println!("RECO {:?}", x))
+            //.inspect(|x| println!("RECO {:?}", x))
             .probe()
-
-        // bucketed_user_vectors
-        //     .inspect(|x| println!("BUCKETING {:?}", x))
-        //     .probe()
-
 
         /*
         // let mut probe = Handle::new();
