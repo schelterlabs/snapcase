@@ -20,14 +20,6 @@ path = "src/bin/tifuknn_replay_from_file.rs"
 name = "tifuknn_example"
 path = "src/bin/tifuknn_example.rs"
 
-[[bin]]
-name = "play"
-path = "src/bin/play.rs"
-
-[[bin]]
-name = "play2"
-path = "src/bin/play2.rs"
-
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]
 timely = "0.12.0"

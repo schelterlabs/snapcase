@@ -34,11 +34,15 @@ use self::differential_dataflow::operators::Threshold;
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
 const GROUP_SIZE: isize = 7;
-const BUCKEY_KEY_LENGTH: usize = 3;
+const R_GROUP: f64 = 0.9;
+const R_USER: f64 = 0.7;
+const RANDOM_SEED: u64 = 42;
+const BUCKET_KEY_LENGTH: usize = 3;
 const BANDS: usize = 426;
 const K: usize = 300;
 const ALPHA: f64 = 0.7;
 
+// TODO refactor this into several submodules
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
     baskets_input: &mut InputSession<T, (u32, Basket), isize>,
@@ -66,7 +70,7 @@ pub fn tifu_knn<T>(
                     *group as usize,
                     baskets_and_multiplicities,
                     GROUP_SIZE,
-                    0.9,
+                    R_GROUP,
                     num_items.clone(),
                 );
 
@@ -80,7 +84,7 @@ pub fn tifu_knn<T>(
                 let user_vector = user_vector(
                     *user,
                     vectors_and_multiplicities,
-                    0.7,
+                    R_USER,
                     num_items.clone()
                 );
 
@@ -91,8 +95,8 @@ pub fn tifu_knn<T>(
         let bucketed_user_vectors = user_vectors
             .flat_map(move |(user, user_vector)| {
 
-                // TODO use benjamin's params
-                let mut hasher = DataSketchMinHash::new(BANDS * BUCKEY_KEY_LENGTH, Some(42));
+                let mut hasher = DataSketchMinHash::new(BANDS * BUCKET_KEY_LENGTH,
+                                                        Some(RANDOM_SEED));
 
                 for index in user_vector.indices.iter() {
                     hasher.update(index);
@@ -100,10 +104,9 @@ pub fn tifu_knn<T>(
 
                 let hashes = hasher.hash_values.0.to_vec();
 
-
                 (0..BANDS).map(move |band_index| {
-                    let start_index = band_index * BUCKEY_KEY_LENGTH;
-                    let end_index = start_index + BUCKEY_KEY_LENGTH;
+                    let start_index = band_index * BUCKET_KEY_LENGTH;
+                    let end_index = start_index + BUCKET_KEY_LENGTH;
                     let hashes_for_bucket = hashes[start_index..end_index].to_vec();
 
                     let key = BucketKey::new(band_index, hashes_for_bucket);

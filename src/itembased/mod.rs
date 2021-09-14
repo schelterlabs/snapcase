@@ -28,6 +28,7 @@ pub fn itembased_cf<T>(
         let users_with_enough_interactions = interactions
             .map(|(user, _item)| user)
             .count_total()
+            // TODO make this configurable
             .filter(move |(_user, count): &(u32, isize)| *count < 500)
             .map(|(user, _count)| user);
 
