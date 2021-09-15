@@ -29,7 +29,7 @@ use self::sprs::CsVec;
 use std::ops::{Add, MulAssign};
 use std::cmp;
 
-use minhash::datasketch_minhash::DataSketchMinHash;
+use minhash::minhash::MinHash;
 use self::differential_dataflow::operators::Threshold;
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
@@ -95,14 +95,14 @@ pub fn tifu_knn<T>(
         let bucketed_user_vectors = user_vectors
             .flat_map(move |(user, user_vector)| {
 
-                let mut hasher = DataSketchMinHash::new(BANDS * BUCKET_KEY_LENGTH,
-                                                        Some(RANDOM_SEED));
+                // TODO compute bands and bucket length from num_perm and threshold
+                let mut hasher = MinHash::new(BANDS * BUCKET_KEY_LENGTH, Some(RANDOM_SEED));
 
                 for index in user_vector.indices.iter() {
                     hasher.update(index);
                 }
 
-                let hashes = hasher.hash_values.0.to_vec();
+                let hashes = hasher.hash_values.0;
 
                 (0..BANDS).map(move |band_index| {
                     let start_index = band_index * BUCKET_KEY_LENGTH;
