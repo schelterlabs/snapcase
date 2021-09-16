@@ -160,7 +160,7 @@ dependencies = [
 [[package]]
 name = "datasketch-minhash-lsh"
 version = "0.0.1"
-source = "git+https://github.com/schelterlabs/rust-minhash#6e8d308e971ea3ff482fffa65d16f15a8e9602d9"
+source = "git+https://github.com/schelterlabs/rust-minhash#2c209bcb0547e7ef4ab9a6bae5806b814c50bf2d"
 dependencies = [
  "float-cmp",
  "itertools 0.10.1",
