@@ -158,6 +158,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "datasketch-minhash-lsh"
+version = "0.0.1"
+source = "git+https://github.com/schelterlabs/rust-minhash#6e8d308e971ea3ff482fffa65d16f15a8e9602d9"
+dependencies = [
+ "float-cmp",
+ "itertools 0.10.1",
+ "quadrature",
+ "rand 0.7.3",
+]
+
+[[package]]
 name = "differential-dataflow"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -331,16 +342,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83fb6581e8ed1f85fd45c116db8405483899489e38406156c25eb743554361d"
 dependencies = [
  "autocfg 1.0.1",
-]
-
-[[package]]
-name = "minhash"
-version = "0.0.1"
-dependencies = [
- "float-cmp",
- "itertools 0.10.1",
- "quadrature",
- "rand 0.7.3",
 ]
 
 [[package]]
@@ -713,10 +714,10 @@ dependencies = [
  "abomonation",
  "abomonation_derive",
  "csv",
+ "datasketch-minhash-lsh",
  "differential-dataflow",
  "fnv",
  "itertools 0.9.0",
- "minhash",
  "rand 0.6.5",
  "sprs",
  "timely",

@@ -1,7 +1,7 @@
 extern crate timely;
 extern crate differential_dataflow;
 extern crate sprs;
-extern crate minhash;
+extern crate datasketch_minhash_lsh;
 
 pub mod types;
 pub mod aggregation;
@@ -29,7 +29,7 @@ use self::sprs::CsVec;
 use std::ops::{Add, MulAssign};
 use std::cmp;
 
-use minhash::MinHash;
+use datasketch_minhash_lsh::MinHash;
 use self::differential_dataflow::operators::Threshold;
 use itertools::Itertools;
 
