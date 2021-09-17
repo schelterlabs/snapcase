@@ -1,13 +1,18 @@
 extern crate csv;
 
 use std::cmp::max;
+use std::path::Path;
+use path_absolutize::Absolutize;
 
 pub fn baskets_from_file(path_to_file: &str) -> (Vec<(u32, usize, Vec<usize>)>, usize) {
+
+    let path: &Path = Path::new(path_to_file);
+    println!("Trying to read path: {:?}", path.absolutize().unwrap());
 
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
         .delimiter(b',')
-        .from_path(path_to_file)
+        .from_path(path)
         .unwrap();
 
     let mut current_user: Option<u32> = None;
