@@ -1,3 +1,5 @@
 RUSTFLAGS="-C target-cpu=native" cargo run --release --bin vsknn_experiments -- -w1 datasets/bolcom-clicks-100k_train.txt datasets/bolcom-clicks-100k_test.txt p.txt l.txt 50 5
 
-cargo run --release --bin tifuknn_replay_from_file -- -w3|grep RECO|cut -d- -f2 > tifu.txt
+cargo run --release --bin tifuknn_replay_from_file -- -w3 > tifu.txt
+grep RECO- tifu.txt|cut -c 6- > tifu-recos.txt
+grep USER- tifu.txt|cut -c 7- > tifu-users.txt

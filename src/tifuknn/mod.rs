@@ -31,7 +31,6 @@ use std::cmp;
 
 use minhash::MinHash;
 use self::differential_dataflow::operators::Threshold;
-use itertools::Itertools;
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
 const GROUP_SIZE: isize = 7;
@@ -42,7 +41,6 @@ const BUCKET_KEY_LENGTH: usize = 3;
 const BANDS: usize = 426;
 const K: usize = 300;
 const ALPHA: f64 = 0.7;
-const NUM_ITEMS_TO_RECOMMEND: usize = 20;
 
 // TODO refactor this into several submodules
 pub fn tifu_knn<T>(
@@ -89,6 +87,17 @@ pub fn tifu_knn<T>(
                     R_USER,
                     num_items.clone()
                 );
+
+                // Lazy way of retrieving the recommended items
+                let (indices, data) =
+                    user_vector.clone().into_sparse_vector(num_items).into_raw_storage();
+
+                let user_vector_items = indices.iter().zip(data.iter())
+                    .map(|(index, value)| format!("{}:{}", index, value))
+                    .collect::<Vec<_>>()
+                    .join(";");
+
+                println!("USER-{}-{}", user, user_vector_items);
 
                 out.push((user_vector, 1))
             });
@@ -187,20 +196,16 @@ pub fn tifu_knn<T>(
             })
             .map(move |((user, _), recommendations)| {
 
-                // Lazy way of retrieving the top-k recommended items
+                // Lazy way of retrieving the recommended items
                 let (indices, data) =
                     recommendations.clone().into_sparse_vector(num_items).into_raw_storage();
 
                 let recommended_items = indices.iter().zip(data.iter())
-                    .sorted_by(|(_index_a, value_a), (_index_b, value_b)| {
-                        value_b.partial_cmp(value_a).unwrap()
-                    })
-                    .take(NUM_ITEMS_TO_RECOMMEND)
-                    .map(|(index, _value)| index.to_string())
+                    .map(|(index, value)| format!("{}:{}", index, value))
                     .collect::<Vec<_>>()
                     .join(";");
 
-                println!("RECO-{}:{}", user, recommended_items);
+                println!("RECO-{}-{}", user, recommended_items);
 
                 (user, recommendations)
             });
