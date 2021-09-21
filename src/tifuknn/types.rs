@@ -31,12 +31,14 @@ pub struct Embedding {
     pub data: Vec<u64>,
 }
 
+const DISCRETISATION_FACTOR: f64 = 1_000_000_000.0;
+
 impl Embedding {
     pub fn new(id: usize, vector: CsVec<f64>) -> Self {
         let (indices, data) = vector.into_raw_storage();
         // TODO we need to work with limited precision here to be able to compute equalities
         let discretised_data: Vec<u64> = data.iter()
-            .map(|value| (value * 10_000.0) as u64)
+            .map(|value| (value * DISCRETISATION_FACTOR) as u64)
             .collect();
 
         Embedding { id, indices, data: discretised_data }
@@ -45,7 +47,7 @@ impl Embedding {
     pub fn into_sparse_vector(self, num_items: usize) -> CsVec<f64> {
 
         let undiscretised_data: Vec<f64> = self.data.iter()
-            .map(|value| *value as f64 / 10_000.0)
+            .map(|value| *value as f64 / DISCRETISATION_FACTOR)
             .collect();
 
         CsVec::new(num_items, self.indices, undiscretised_data)
@@ -54,7 +56,7 @@ impl Embedding {
     pub fn clone_into_dense_vector(&self, num_items: usize) -> Vec<f64> {
         let mut dense_vector = vec![0.0; num_items];
         for (index, value) in zip(&self.indices, &self.data) {
-            dense_vector[*index] = *value as f64 / 10_000.0;
+            dense_vector[*index] = *value as f64 / DISCRETISATION_FACTOR;
         }
         dense_vector
     }

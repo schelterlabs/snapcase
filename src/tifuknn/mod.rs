@@ -31,8 +31,7 @@ use std::cmp;
 
 use datasketch_minhash_lsh::MinHash;
 use self::differential_dataflow::operators::Threshold;
-use itertools::Itertools;
-use self::datasketch_minhash_lsh::{LshParams, Weights};
+use datasketch_minhash_lsh::{LshParams, Weights};
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
 const GROUP_SIZE: isize = 7;
@@ -92,6 +91,17 @@ pub fn tifu_knn<T>(
                     R_USER,
                     num_items.clone()
                 );
+
+                // Lazy way of retrieving the recommended items
+                let (indices, data) =
+                    user_vector.clone().into_sparse_vector(num_items).into_raw_storage();
+
+                let user_vector_items = indices.iter().zip(data.iter())
+                    .map(|(index, value)| format!("{}:{}", index, value))
+                    .collect::<Vec<_>>()
+                    .join(";");
+
+                println!("USER-{}-{}", user, user_vector_items);
 
                 out.push((user_vector, 1))
             });
@@ -189,20 +199,16 @@ pub fn tifu_knn<T>(
             })
             .map(move |((user, _), recommendations)| {
 
-                // Lazy way of retrieving the top-k recommended items
+                // Lazy way of retrieving the recommended items
                 let (indices, data) =
                     recommendations.clone().into_sparse_vector(num_items).into_raw_storage();
 
                 let recommended_items = indices.iter().zip(data.iter())
-                    .sorted_by(|(_index_a, value_a), (_index_b, value_b)| {
-                        value_b.partial_cmp(value_a).unwrap()
-                    })
-                    .take(NUM_ITEMS_TO_RECOMMEND)
-                    .map(|(index, _value)| index.to_string())
+                    .map(|(index, value)| format!("{}:{}", index, value))
                     .collect::<Vec<_>>()
                     .join(";");
 
-                println!("RECO-{}:{}", user, recommended_items);
+                println!("RECO-{}-{}", user, recommended_items);
 
                 (user, recommendations)
             });

@@ -1,4 +1,4 @@
-tifu.txt
+tifu*.txt
 .DS_Store
 rust_impl/target
 rust_impl/Cargo.lock
