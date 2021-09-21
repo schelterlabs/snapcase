@@ -160,7 +160,8 @@ dependencies = [
 [[package]]
 name = "datasketch-minhash-lsh"
 version = "0.0.1"
-source = "git+https://github.com/schelterlabs/rust-minhash?rev=2c209bcb0547e7ef4ab9a6bae5806b814c50bf2d#2c209bcb0547e7ef4ab9a6bae5806b814c50bf2d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05f327959225d646426abc1da8724984b0e407a1bdcbc81d04d5ffa793b29665"
 dependencies = [
  "float-cmp",
  "itertools 0.10.1",

@@ -34,5 +34,5 @@ rand="0.6"
 #openblas-src = "0.9"
 #blas-src = { version = "0.7", features = ["openblas"] }
 sprs = "0.10.0"
-datasketch-minhash-lsh = { git = "https://github.com/schelterlabs/rust-minhash", rev ="2c209bcb0547e7ef4ab9a6bae5806b814c50bf2d" }
+datasketch-minhash-lsh = "0.0.1"
 path-absolutize = "3.0.10"
