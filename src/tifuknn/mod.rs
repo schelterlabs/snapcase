@@ -43,7 +43,7 @@ const ALPHA: f64 = 0.7;
 const NUM_ITEMS_TO_RECOMMEND: usize = 20;
 const NUM_PERMUTATION_FUNCS: usize = 1280;
 const JACCARD_THRESHHOLD: f64 = 0.1;
-const LSH_WEIGHTS: Weights = Weights { 0: 0.5, 1: 0.5 };
+const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
 
 // TODO refactor this into several submodules
 pub fn tifu_knn<T>(
