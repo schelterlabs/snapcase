@@ -40,7 +40,6 @@ const R_USER: f64 = 0.7;
 const RANDOM_SEED: u64 = 42;
 const K: usize = 300;
 const ALPHA: f64 = 0.7;
-const NUM_ITEMS_TO_RECOMMEND: usize = 20;
 const NUM_PERMUTATION_FUNCS: usize = 1280;
 const JACCARD_THRESHHOLD: f64 = 0.1;
 const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
