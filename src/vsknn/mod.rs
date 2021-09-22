@@ -22,6 +22,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::trace::{Cursor, TraceReader, BatchReader};
 use differential_dataflow::operators::{Threshold, CountTotal};
 use differential_dataflow::operators::arrange::ArrangeByKey;
+use differential_dataflow::operators::reduce::ReduceCore;
 
 use types::{SessionId, ItemId, ItemScore, Trace, OrderedSessionItem};
 use self::timely::progress::frontier::AntichainRef;
@@ -149,8 +150,11 @@ pub fn vsknn<T>(
             dataflow::prepare(&historical_sessions_with_duplicates, m, num_total_sessions);
 
         let historical_sessions_arranged_by_session = historical_sessions_by_item
-            .map(|(item, session)| (session, item))
-            .arrange_by_key();
+            .reduce_abelian("Reduce", |_item, sessions_with_multiplicities, output| {
+                for (session, _) in sessions_with_multiplicities {
+                    output.push((**session, 1))
+                }
+            });
 
         let evolving_sessions_by_item = evolving_sessions_by_session
             .map(|(session, item)| (item, session));

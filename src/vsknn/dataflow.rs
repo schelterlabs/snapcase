@@ -6,10 +6,12 @@ use timely::dataflow::Scope;
 
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Join, Threshold, Reduce, Consolidate, Count};
+use differential_dataflow::operators::{Join, Threshold, Reduce, Consolidate};//, Count};
+use differential_dataflow::operators::arrange::ArrangeByKey;
 
 use crate::vsknn::types::{SessionId, ItemId, Scored, UnsafeF64, Similarity, OrderedSessionItem, Order, Trace};
 use differential_dataflow::operators::arrange::Arranged;
+use differential_dataflow::operators::reduce::ReduceCore;
 
 fn linear_score(pos: usize) -> f64 {
     if pos < 100 { 1.0 - (0.1 * pos as f64) } else { 0.0 }
@@ -21,8 +23,8 @@ pub (crate) fn prepare<G: Scope>(
     num_total_sessions: usize,
 ) -> (
         Collection<G, (SessionId, Order), isize>, // historical_session_max_order
-        Collection<G, (ItemId, SessionId), isize>, // historical_sessions_by_item
-        Collection<G, (ItemId, UnsafeF64), isize>, // item_idfs
+        Arranged<G, Trace<ItemId, SessionId, G::Timestamp, isize>>, // historical_sessions_by_item
+        Arranged<G, Trace<ItemId, UnsafeF64, G::Timestamp, isize>>, // item_idfs
     )
     where G::Timestamp: Lattice+Ord
 {
@@ -35,7 +37,7 @@ pub (crate) fn prepare<G: Scope>(
             output.push((*max_order, 1));
         });
 
-    let historical_sessions_by_item =
+    let all_historical_sessions_by_item_arranged =
         historical_sessions_with_duplicates
             .join_map(
                 &historical_session_max_order,
@@ -43,8 +45,14 @@ pub (crate) fn prepare<G: Scope>(
                     (*item, (*max_order, *session))
                 }
             )
-            // We only need to retain m historical sessions per item
-            .reduce(move |_item, ordered_sessions_and_multiplicities, output| {
+            .arrange_by_key();
+
+
+
+    let historical_sessions_by_item =
+        // We only need to retain m historical sessions per item
+        all_historical_sessions_by_item_arranged
+            .reduce_abelian("Reduce", move |_item, ordered_sessions_and_multiplicities, output| {
                 for ((_order, historical_session), _) in ordered_sessions_and_multiplicities
                     .into_iter().take(m.clone())
                 {
@@ -53,22 +61,20 @@ pub (crate) fn prepare<G: Scope>(
             });
 
     // Count the number of sessions in which item occurs, and compute the weighted per-item idf
-    let item_idfs = historical_sessions_with_duplicates
-        .map(|(_session, (item, _order))| (item))
-        //.count_total()
-        .count()
-        .map(move |(item, num_sessions)| {
-            let item_idf = (num_total_sessions as f64 / num_sessions as f64).ln();
-
-            (item, UnsafeF64::new(item_idf))
-        });
+    let item_idfs =
+        all_historical_sessions_by_item_arranged
+            .reduce_abelian("Reduce", move |_item, ordered_sessions_and_multiplicities, output| {
+                let num_sessions = ordered_sessions_and_multiplicities.len();
+                let item_idf = (num_total_sessions as f64 / num_sessions as f64).ln();
+                output.push((UnsafeF64::new(item_idf), 1))
+            });
 
     (historical_session_max_order, historical_sessions_by_item, item_idfs)
 }
 
 
 pub(crate) fn session_matches<G: Scope>(
-    historical_sessions_by_item: &Collection<G, (ItemId, SessionId), isize>,
+    historical_sessions_by_item: &Arranged<G, Trace<ItemId, SessionId, G::Timestamp, isize>>,
     evolving_sessions_by_item: &Collection<G, (ItemId, SessionId), isize>,
     historical_session_max_order: &Collection<G, (SessionId, Order), isize>,
     m: usize
@@ -76,8 +82,8 @@ pub(crate) fn session_matches<G: Scope>(
     where G::Timestamp: Lattice+Ord {
 
     // Find all pairs of historical and evolving sessions that share at least one item
-    let session_matches = evolving_sessions_by_item
-        .join_map(&historical_sessions_by_item, |_, evolving_session, historical_session| {
+    let session_matches = historical_sessions_by_item
+        .join_map(&evolving_sessions_by_item, |_, historical_session, evolving_session| {
             (*historical_session, *evolving_session)
         })
         .distinct();
@@ -137,7 +143,7 @@ pub(crate) fn similarities<G: Scope>(
     let similarities = item_matches
         .reduce(|_session_pair, items_lengths_and_multiplicities, output| {
             let mut similarity = 0.0;
-            let mut minimal_match_position = std::usize::MAX;
+            let mut minimal_match_position = usize::MAX;
 
             for ((_item, length), multiplicity) in items_lengths_and_multiplicities {
                 let contribution = *multiplicity as f64 / *length as f64;
@@ -178,7 +184,8 @@ pub(crate) fn similarities<G: Scope>(
 pub(crate) fn item_scores<G: Scope>(
     similarities: &Collection<G, (SessionId, (SessionId, Similarity)), isize>,
     historical_sessions_arranged_by_session: &Arranged<G, Trace<SessionId, ItemId, G::Timestamp, isize>>,
-    item_idfs: &Collection<G, (ItemId, UnsafeF64), isize>,
+    //item_idfs: &Collection<G, (ItemId, UnsafeF64), isize>,
+    item_idfs: &Arranged<G, Trace<ItemId, UnsafeF64, G::Timestamp, isize>>,
 )   -> Collection<G, (SessionId, (ItemId, UnsafeF64)), isize>
     where G::Timestamp: Lattice+Ord+TotalOrder {
 
@@ -206,11 +213,20 @@ pub(crate) fn item_scores<G: Scope>(
             output.push((item_score, 1))
         });
 
-    let weighted_item_scores = item_scores
-        .map(|((evolving_session, item), similarity)| (item, (evolving_session, similarity)))
-        .join_map(&item_idfs, |item, (evolving_session, similarity), item_idf| {
+    let items_scores_by_item = item_scores
+        .map(|((evolving_session, item), similarity)| (item, (evolving_session, similarity)));
+
+    let weighted_item_scores = item_idfs
+        .join_map(&items_scores_by_item, |item, item_idf, (evolving_session, similarity)| {
             (*evolving_session, (*item, similarity.weight_by(&item_idf)))
         });
+
+
+    // let weighted_item_scores = item_scores
+    //     .map(|((evolving_session, item), similarity)| (item, (evolving_session, similarity)))
+    //     .join_map(&item_idfs, |item, (evolving_session, similarity), item_idf| {
+    //         (*evolving_session, (*item, similarity.weight_by(&item_idf)))
+    //     });
 
     weighted_item_scores
 }
