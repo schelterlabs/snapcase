@@ -1,0 +1,16 @@
+Namespace(alpha=0.7, ground_truth_path='../datasets/nbr/TaFang_future_NB.csv', history_path='../datasets/nbr/TaFang_history_NB.csv', num_neighbours=300, test_split=1.0, topn=20, user_vector_path='../tifu.txt')
+Started running prediction...
+number of records in ../datasets/nbr/TaFang_history_NB.csv: 494017
+random seed: 1027
+Num of training users: 7483
+Num of test users: 7483
+Searching for neighbors for test users in training users...
+Started generating predictions...
+number of records in ../datasets/nbr/TaFang_future_NB.csv: 91937
+Started evaluating...
+top n: 10
+recall@10:0.12904308209907997
+ndcg@10: 0.0776513960575446
+top n: 20
+recall@20:0.1840737855152433
+ndcg@20: 0.07528375263430369
