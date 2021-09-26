@@ -1,11 +1,8 @@
-import csv
 import json
 import os
-import random
 import time
 
 import pandas as pd
-import numpy as np
 
 from utils import BasketVectorizer
 
@@ -94,7 +91,5 @@ class Dataset:
 
 if __name__ == '__main__':
     ds = Dataset()
-    ds.load_from_file("/Users/longxiang/devel/github/UvAAI/thesis_ai/thesis/tifuknn/data/TaFang_history_NB.csv")
-    ds.to_vocab("/Users/longxiang/devel/github/UvAAI/thesis_ai/thesis/tifuknn_spark/jsondata/tafang_vocab.csv")
-    ds.to_json_baskets("/Users/longxiang/devel/github/UvAAI/thesis_ai/thesis/tifuknn_spark/jsondata/tafang")
+    ds.load_from_file("../datasets/TaFang_history_NB.csv")
     print(ds)
