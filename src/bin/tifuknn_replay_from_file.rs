@@ -12,13 +12,8 @@ fn main() {
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
-        let path_to_file = format!(
-            "{}/{}",
-            std::env::current_dir().unwrap().to_str().unwrap(),
-            "datasets/nbr/TaFang_history_NB.csv"
-        );
-
-        let (baskets, num_items) = baskets_from_file(&path_to_file);
+        let (baskets, num_items) = baskets_from_file(
+            "./datasets/nbr/TaFang_history_NB.csv");
 
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
 

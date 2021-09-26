@@ -158,6 +158,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "datasketch-minhash-lsh"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05f327959225d646426abc1da8724984b0e407a1bdcbc81d04d5ffa793b29665"
+dependencies = [
+ "float-cmp",
+ "itertools 0.10.1",
+ "quadrature",
+ "rand 0.7.3",
+]
+
+[[package]]
 name = "differential-dataflow"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -334,16 +346,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minhash"
-version = "0.0.1"
-dependencies = [
- "float-cmp",
- "itertools 0.10.1",
- "quadrature",
- "rand 0.7.3",
-]
-
-[[package]]
 name = "ndarray"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -403,6 +405,30 @@ checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "once_cell"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
+
+[[package]]
+name = "path-absolutize"
+version = "3.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0feea2f0a6009a0fefe6ee3aae1871e4a57d7f2aae4681ac4a34a201071c9b9"
+dependencies = [
+ "path-dedot",
+]
+
+[[package]]
+name = "path-dedot"
+version = "3.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a14ca47b49e6abd75cf68db85e1e161d9f2b675716894a18af0e9add0266b26"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
@@ -713,10 +739,11 @@ dependencies = [
  "abomonation",
  "abomonation_derive",
  "csv",
+ "datasketch-minhash-lsh",
  "differential-dataflow",
  "fnv",
  "itertools 0.9.0",
- "minhash",
+ "path-absolutize",
  "rand 0.6.5",
  "sprs",
  "timely",

@@ -1,7 +1,7 @@
 extern crate timely;
 extern crate differential_dataflow;
 extern crate sprs;
-extern crate minhash;
+extern crate datasketch_minhash_lsh;
 
 pub mod types;
 pub mod aggregation;
@@ -29,18 +29,20 @@ use self::sprs::CsVec;
 use std::ops::{Add, MulAssign};
 use std::cmp;
 
-use minhash::MinHash;
+use datasketch_minhash_lsh::MinHash;
 use self::differential_dataflow::operators::Threshold;
+use datasketch_minhash_lsh::{LshParams, Weights};
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
 const GROUP_SIZE: isize = 7;
 const R_GROUP: f64 = 0.9;
 const R_USER: f64 = 0.7;
 const RANDOM_SEED: u64 = 42;
-const BUCKET_KEY_LENGTH: usize = 3;
-const BANDS: usize = 426;
 const K: usize = 300;
 const ALPHA: f64 = 0.7;
+const NUM_PERMUTATION_FUNCS: usize = 1280;
+const JACCARD_THRESHHOLD: f64 = 0.1;
+const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
 
 // TODO refactor this into several submodules
 pub fn tifu_knn<T>(
@@ -52,7 +54,8 @@ pub fn tifu_knn<T>(
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
 
     worker.dataflow(|scope| {
-
+        let LshParams { b: bands, r: bucket_key_length } = LshParams::find_optimal_params(
+            JACCARD_THRESHHOLD, NUM_PERMUTATION_FUNCS, &LSH_WEIGHTS);
         let num_items = num_items.clone();
 
         let baskets = baskets_input.to_collection(scope);
@@ -106,8 +109,7 @@ pub fn tifu_knn<T>(
         let bucketed_user_vectors = user_vectors
             .flat_map(move |(user, user_vector)| {
 
-                // TODO compute bands and bucket length from num_perm and threshold
-                let mut hasher = MinHash::new(BANDS * BUCKET_KEY_LENGTH, Some(RANDOM_SEED));
+                let mut hasher = MinHash::new(NUM_PERMUTATION_FUNCS, Some(RANDOM_SEED));
 
                 for index in user_vector.indices.iter() {
                     hasher.update(index);
@@ -115,9 +117,9 @@ pub fn tifu_knn<T>(
 
                 let hashes = hasher.hash_values.0;
 
-                (0..BANDS).map(move |band_index| {
-                    let start_index = band_index * BUCKET_KEY_LENGTH;
-                    let end_index = start_index + BUCKET_KEY_LENGTH;
+                (0..bands).map(move |band_index| {
+                    let start_index = band_index * bucket_key_length;
+                    let end_index = start_index + bucket_key_length;
                     let hashes_for_bucket = hashes[start_index..end_index].to_vec();
 
                     let key = BucketKey::new(band_index, hashes_for_bucket);
