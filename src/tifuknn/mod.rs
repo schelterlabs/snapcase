@@ -35,13 +35,13 @@ use datasketch_minhash_lsh::{LshParams, Weights};
 
 // TODO these should not be hardcoded, we need a params object and must also include the r's
 const GROUP_SIZE: isize = 7;
-const R_GROUP: f64 = 0.9;
-const R_USER: f64 = 0.7;
+const R_GROUP: f64 = 0.7;
+const R_USER: f64 = 0.9;
 const RANDOM_SEED: u64 = 42;
 const K: usize = 300;
 const ALPHA: f64 = 0.7;
 const NUM_PERMUTATION_FUNCS: usize = 1280;
-const JACCARD_THRESHHOLD: f64 = 0.1;
+const JACCARD_THRESHOLD: f64 = 0.1;
 const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
 
 // TODO refactor this into several submodules
@@ -55,7 +55,7 @@ pub fn tifu_knn<T>(
 
     worker.dataflow(|scope| {
         let LshParams { b: bands, r: bucket_key_length } = LshParams::find_optimal_params(
-            JACCARD_THRESHHOLD, NUM_PERMUTATION_FUNCS, &LSH_WEIGHTS);
+            JACCARD_THRESHOLD, NUM_PERMUTATION_FUNCS, &LSH_WEIGHTS);
         let num_items = num_items.clone();
 
         let baskets = baskets_input.to_collection(scope);

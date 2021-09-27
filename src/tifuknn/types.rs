@@ -8,7 +8,7 @@ use differential_dataflow::trace::implementations::spine_fueled::Spine;
 use differential_dataflow::operators::arrange::TraceAgent;
 use super::sprs::CsVec;
 use std::hash::Hash;
-use itertools::zip;
+use std::collections::HashMap;
 
 pub type Trace<K, V, T, R> = TraceAgent<Spine<K, V, T, R, Rc<OrdValBatch<K, V, T, R>>>>;
 
@@ -30,6 +30,27 @@ pub struct Embedding {
     pub indices: Vec<usize>,
     pub data: Vec<u64>,
 }
+
+pub struct SparseVector {
+    entries: HashMap<usize, f64>,
+}
+
+impl SparseVector {
+    fn mult(&mut self, mult: f64) {
+        for (_, val) in self.entries.iter_mut() {
+            *val *= mult;
+        }
+    }
+
+    fn plus_mult(&mut self, mult: f64, other: &Embedding) {
+        for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
+
+        }
+    }
+}
+
+
+
 
 const DISCRETISATION_FACTOR: f64 = 1_000_000_000.0;
 
@@ -53,21 +74,6 @@ impl Embedding {
         CsVec::new(num_items, self.indices, undiscretised_data)
     }
 
-    pub fn clone_into_dense_vector(&self, num_items: usize) -> Vec<f64> {
-        let mut dense_vector = vec![0.0; num_items];
-        for (index, value) in zip(&self.indices, &self.data) {
-            dense_vector[*index] = *value as f64 / DISCRETISATION_FACTOR;
-        }
-        dense_vector
-    }
-
-    pub fn clone_into_dense_binary_vector(&self, num_items: usize) -> Vec<u64> {
-        let mut dense_vector = vec![0_u64; num_items];
-        for (index, _value) in zip(&self.indices, &self.data) {
-            dense_vector[*index] = 1;
-        }
-        dense_vector
-    }
 }
 
 #[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]

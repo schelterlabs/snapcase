@@ -26,7 +26,6 @@ pub fn group_vector(
     let mut embedding: CsVec<f64> = CsVec::empty(num_items);
 
     for (basket, multiplicity) in baskets_and_multiplicities {
-        assert!(*multiplicity > 0);
 
         let index = index(*multiplicity, group_size) + correction_offset;
         //println!("GROUP: {:?} {:?} {:?} - {:?}", r, group_size, index, basket.items);
@@ -52,7 +51,7 @@ pub fn user_vector(
     num_items: usize,
 ) -> Embedding {
 
-    let mut embedding: CsVec<f64> =  CsVec::empty(num_items);
+    let mut embedding: CsVec<f64> = CsVec::empty(num_items);
 
     let num_groups = group_vectors_and_multiplicities.len() as isize;
 
