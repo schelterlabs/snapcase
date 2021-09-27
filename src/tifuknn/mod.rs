@@ -62,7 +62,6 @@ pub fn tifu_knn<T>(
         let group_vectors = baskets
             .reduce(|_user, baskets_and_multiplicities, out| {
                 for (basket, multiplicity) in baskets_and_multiplicities {
-                    assert!(*multiplicity > 0);
                     let group = (*multiplicity + (*multiplicity % GROUP_SIZE)) / GROUP_SIZE;
                     out.push(((group, (*basket).clone()), *multiplicity));
                 }
@@ -77,7 +76,10 @@ pub fn tifu_knn<T>(
                     num_items.clone(),
                 );
 
-                out.push((group_vector, *group));
+                // We need to add one to not have the 0-th group vanish
+                let group_plus_one = *group + 1;
+
+                out.push((group_vector, group_plus_one));
             })
             .map(|((user, _), group_vector)| (user, group_vector));
             //.inspect(|x| println!("Group vector {:?}", x));

@@ -57,9 +57,11 @@ pub fn user_vector(
     let num_groups = group_vectors_and_multiplicities.len() as isize;
 
     for (group_vector, multiplicity) in group_vectors_and_multiplicities {
-        assert!(*multiplicity > 0);
 
-        let index = index(*multiplicity, num_groups);
+        // We added one to the group index to use it as multiplicity
+        let group_index = *multiplicity - 1;
+
+        let index = index(group_index, num_groups);
 
         let m_minus_i = (&num_groups - index) as i32;
         let r_g_m_minus_i = r.powi(m_minus_i);
