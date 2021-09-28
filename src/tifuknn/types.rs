@@ -37,13 +37,6 @@ impl Basket {
     }
 }
 
-#[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]
-pub struct DiscretisedItemVector {
-    pub id: usize,
-    pub indices: Vec<usize>,
-    pub data: Vec<u64>,
-}
-
 pub struct SparseItemVector {
     entries: HashMap<usize, f64>,
 }
@@ -79,12 +72,18 @@ impl SparseItemVector {
     }
 }
 
-const DISCRETISATION_FACTOR: f64 = 1_000_000_000.0;
+const DISCRETISATION_FACTOR: f64 = 1_000_000_000_000_000.0;
+
+#[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]
+pub struct DiscretisedItemVector {
+    pub id: usize,
+    pub indices: Vec<usize>,
+    pub data: Vec<u64>,
+}
 
 impl DiscretisedItemVector {
 
     pub fn new(id: usize, vector: SparseItemVector) -> Self {
-        // TODO optimise later
         let mut indices = Vec::with_capacity(vector.entries.len());
         let mut data = Vec::with_capacity(vector.entries.len());
         for (index, value) in vector.entries {
