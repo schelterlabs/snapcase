@@ -8,6 +8,7 @@ use differential_dataflow::trace::implementations::spine_fueled::Spine;
 use differential_dataflow::operators::arrange::TraceAgent;
 use std::hash::Hash;
 use std::collections::HashMap;
+use itertools::Itertools;
 
 pub type Trace<K, V, T, R> = TraceAgent<Spine<K, V, T, R, Rc<OrdValBatch<K, V, T, R>>>>;
 
@@ -95,8 +96,8 @@ impl DiscretisedItemVector {
     }
 
     pub fn print(&self) -> String {
-        // TODO sort them
         self.indices.iter().zip(self.data.iter())
+            .sorted_by(|(index_a, _), (index_b, _)| index_a.cmp(index_b))
             .map(|(index, value)| format!("{}:{}", index, (*value as f64 / DISCRETISATION_FACTOR)))
             .collect::<Vec<_>>()
             .join(";")

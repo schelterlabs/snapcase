@@ -17,8 +17,8 @@ name = "tifuknn_replay_from_file"
 path = "src/bin/tifuknn_replay_from_file.rs"
 
 [[bin]]
-name = "tifuknn_example"
-path = "src/bin/tifuknn_example.rs"
+name = "tifuknn_example_incremental"
+path = "src/bin/tifuknn_example_incremental.rs"
 
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]

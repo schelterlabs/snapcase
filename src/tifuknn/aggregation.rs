@@ -21,12 +21,14 @@ pub fn group_vector(
 
     let mut group_vector = SparseItemVector::new();
 
+    let num_baskets_in_group = baskets_and_multiplicities.len() as f64;
+
     for (basket, multiplicity) in baskets_and_multiplicities {
 
         let index = index(*multiplicity, group_size) + correction_offset;
         //println!("GROUP: {:?} {:?} {:?} - {:?}", r, group_size, index, basket.items);
         let decay = r.powi((&group_size - index) as i32);
-        let contribution = decay / group_size as f64;
+        let contribution = decay / num_baskets_in_group;
 
         for item in &basket.items {
             group_vector.plus_at(*item, contribution);

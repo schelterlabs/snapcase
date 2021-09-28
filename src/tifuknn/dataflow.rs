@@ -152,10 +152,11 @@ pub (crate) fn lsh_recommendations<G: Scope>(
             let recommendations =
                 DiscretisedItemVector::new(*user_a as usize, sum_of_neighbors);
 
+            println!("RECO-{}-{}", user_a, recommendations.print());
+
             out.push((recommendations, 1));
         })
         .map(move |((user, _), recommendations)| {
-            println!("RECO-{}-{}", user, recommendations.print());
             (user, recommendations)
         });
 
