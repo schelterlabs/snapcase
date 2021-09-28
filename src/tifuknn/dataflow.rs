@@ -1,7 +1,5 @@
-use crate::tifuknn::types::{Basket, DiscretisedItemVector, BucketKey, SparseItemVector};
+use crate::tifuknn::types::{Basket, DiscretisedItemVector, BucketKey, SparseItemVector, HyperParams};
 use crate::tifuknn::aggregation::{group_vector, user_vector};
-
-use crate::tifuknn::{GROUP_SIZE, R_GROUP, R_USER, NUM_PERMUTATION_FUNCS, RANDOM_SEED, ALPHA, K, JACCARD_THRESHOLD, LSH_WEIGHTS};
 
 use timely::dataflow::Scope;
 use differential_dataflow::lattice::Lattice;
@@ -9,23 +7,24 @@ use differential_dataflow::Collection;
 use differential_dataflow::operators::{Join, Reduce, Threshold};
 use differential_dataflow::operators::arrange::ArrangeByKey;
 
-use super::datasketch_minhash_lsh::{MinHash, LshParams};
+use datasketch_minhash_lsh::{MinHash, LshParams, Weights};
 use std::cmp;
 
 pub (crate) fn user_vectors<G: Scope>(
     baskets: &Collection<G, (u32, Basket), isize>,
+    params: HyperParams,
 ) -> Collection<G, (u32, DiscretisedItemVector), isize>
     where G::Timestamp: Lattice+Ord
 {
-
     let group_vectors = baskets
-        .reduce(|_user, baskets_and_multiplicities, out| {
+        .reduce(move |_user, baskets_and_multiplicities, out| {
             for (basket, multiplicity) in baskets_and_multiplicities {
                 // TODO write a test for this...
-                let group = if *multiplicity % GROUP_SIZE == 0 {
-                    *multiplicity / GROUP_SIZE
+                let group = if *multiplicity % params.group_size == 0 {
+                    *multiplicity / params.group_size
                 } else {
-                    (*multiplicity + (GROUP_SIZE - (*multiplicity % GROUP_SIZE))) / GROUP_SIZE
+                    (*multiplicity + (params.group_size - (*multiplicity % params.group_size)))
+                        / params.group_size
                 };
 
                 assert_ne!(group, 0);
@@ -38,8 +37,8 @@ pub (crate) fn user_vectors<G: Scope>(
             let group_vector = group_vector(
                 *group as usize,
                 baskets_and_multiplicities,
-                GROUP_SIZE,
-                R_GROUP,
+                params.group_size,
+                params.r_group,
             );
 
             out.push((group_vector, *group));
@@ -49,7 +48,7 @@ pub (crate) fn user_vectors<G: Scope>(
 
     let user_vectors = group_vectors
         .reduce(move |user, vectors_and_multiplicities, out| {
-            let user_vector = user_vector(*user, vectors_and_multiplicities, R_USER);
+            let user_vector = user_vector(*user, vectors_and_multiplicities, params.r_user);
             println!("USER-{}-{}", user, user_vector.print());
             out.push((user_vector, 1))
         });
@@ -58,17 +57,23 @@ pub (crate) fn user_vectors<G: Scope>(
 }
 
 pub (crate) fn lsh_recommendations<G: Scope>(
-    user_vectors: &Collection<G, (u32, DiscretisedItemVector), isize>
+    user_vectors: &Collection<G, (u32, DiscretisedItemVector), isize>,
+    params: HyperParams,
 ) -> Collection<G, (u32, DiscretisedItemVector), isize>
     where G::Timestamp: Lattice+Ord
 {
-    let LshParams { b: bands, r: bucket_key_length } = LshParams::find_optimal_params(
-        JACCARD_THRESHOLD, NUM_PERMUTATION_FUNCS, &LSH_WEIGHTS);
+    let LshParams { b: bands, r: bucket_key_length } =
+        LshParams::find_optimal_params(
+            params.jaccard_threshold,
+            params.num_permutation_functions,
+            &Weights(0.5, 0.5)
+        );
 
     let bucketed_user_vectors = user_vectors
         .flat_map(move |(user, user_vector)| {
 
-            let mut hasher = MinHash::new(NUM_PERMUTATION_FUNCS, Some(RANDOM_SEED));
+            let mut hasher =
+                MinHash::new(params.num_permutation_functions, Some(params.random_seed));
 
             for index in user_vector.indices.iter() {
                 hasher.update(index);
@@ -131,7 +136,7 @@ pub (crate) fn lsh_recommendations<G: Scope>(
             similarities.sort_by(|(_, sim_a), (_, sim_b)| sim_b.partial_cmp(sim_a).unwrap());
 
             // TODO skip neighbor identification if we have <= K other vectors here!
-            let num_neighbors = cmp::min(similarities.len(), K);
+            let num_neighbors = cmp::min(similarities.len(), params.k);
 
             let mut sum_of_neighbors = SparseItemVector::new();
 
@@ -140,9 +145,9 @@ pub (crate) fn lsh_recommendations<G: Scope>(
                 sum_of_neighbors.plus(other_user_vector);
             }
 
-            let neighbor_factor = (1.0 - ALPHA) * (1.0 / num_neighbors as f64);
+            let neighbor_factor = (1.0 - params.alpha) * (1.0 / num_neighbors as f64);
             sum_of_neighbors.mult(neighbor_factor);
-            sum_of_neighbors.plus_mult(ALPHA, user_vector_a);
+            sum_of_neighbors.plus_mult(params.alpha, user_vector_a);
 
             let recommendations =
                 DiscretisedItemVector::new(*user_a as usize, sum_of_neighbors);

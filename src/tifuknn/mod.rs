@@ -17,23 +17,12 @@ use timely::order::TotalOrder;
 
 use differential_dataflow::input::InputSession;
 use differential_dataflow::lattice::Lattice;
-
-use datasketch_minhash_lsh::Weights;
-
-// TODO these should not be hardcoded, we need a params object and must also include the r's
-const GROUP_SIZE: isize = 7;
-const R_GROUP: f64 = 0.7;
-const R_USER: f64 = 0.9;
-const RANDOM_SEED: u64 = 42;
-const K: usize = 300;
-const ALPHA: f64 = 0.7;
-const NUM_PERMUTATION_FUNCS: usize = 1280;
-const JACCARD_THRESHOLD: f64 = 0.1;
-const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
+use crate::tifuknn::types::HyperParams;
 
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
     baskets_input: &mut InputSession<T, (u32, Basket), isize>,
+    hyperparams: HyperParams,
 )   -> ProbeHandle<T>
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
 
@@ -41,8 +30,8 @@ pub fn tifu_knn<T>(
 
         let baskets = baskets_input.to_collection(scope);
 
-        let user_vectors = dataflow::user_vectors(&baskets);
-        let recommendations = dataflow::lsh_recommendations(&user_vectors);
+        let user_vectors = dataflow::user_vectors(&baskets, hyperparams);
+        let recommendations = dataflow::lsh_recommendations(&user_vectors, hyperparams);
 
         recommendations
             //.inspect(|x| println!("RECO {:?}", x))

@@ -3,16 +3,27 @@ extern crate differential_dataflow;
 
 use differential_dataflow::input::InputSession;
 
-use snapcase::tifuknn::types::{Basket};
+use snapcase::tifuknn::types::{Basket, HyperParams};
 use snapcase::tifuknn::tifu_knn;
 
 fn main() {
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
+        let params = HyperParams {
+            group_size: 7,
+            r_group: 0.7,
+            r_user: 0.9,
+            random_seed: 42,
+            k: 300,
+            alpha: 0.7,
+            num_permutation_functions: 1280,
+            jaccard_threshold: 0.1,
+        };
+
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input);
+        let probe = tifu_knn(worker, &mut baskets_input, params);
 
         baskets_input.advance_to(1);
 

@@ -17,7 +17,6 @@ pub type ItemScore = (ItemId, UnsafeF64);
 
 pub type Trace<K, V, T, R> = TraceAgent<Spine<K, V, T, R, Rc<OrdValBatch<K, V, T, R>>>>;
 
-
 #[derive(Eq, PartialEq, Debug, Clone, Abomonation, Hash)]
 pub struct Scored {
     pub session: SessionId,
