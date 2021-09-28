@@ -1,6 +1,5 @@
 extern crate timely;
 extern crate differential_dataflow;
-extern crate sprs;
 
 use differential_dataflow::input::InputSession;
 
@@ -12,12 +11,12 @@ fn main() {
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
-        let (baskets, num_items) = baskets_from_file(
+        let (baskets, _num_items) = baskets_from_file(
             "./datasets/nbr/TaFang_history_NB.csv");
 
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input, num_items);
+        let probe = tifu_knn(worker, &mut baskets_input);//, num_items);
 
         baskets_input.advance_to(1);
 

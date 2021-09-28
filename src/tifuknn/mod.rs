@@ -1,15 +1,12 @@
 extern crate timely;
 extern crate differential_dataflow;
-extern crate sprs;
 extern crate datasketch_minhash_lsh;
 
 pub mod types;
 pub mod aggregation;
 
-use crate::tifuknn::types::{Basket, BucketKey, Embedding};
+use crate::tifuknn::types::{Basket, BucketKey, DiscretisedItemVector, SparseItemVector};
 
-//use timely::dataflow::operators::probe::Handle;
-//use timely::dataflow::operators::Probe;
 use timely::worker::Worker;
 use timely::communication::Allocator;
 use timely::dataflow::ProbeHandle;
@@ -25,8 +22,6 @@ use differential_dataflow::operators::{Reduce, Join};
 
 use crate::tifuknn::aggregation::{group_vector, user_vector};
 
-use self::sprs::CsVec;
-use std::ops::{Add, MulAssign};
 use std::cmp;
 
 use datasketch_minhash_lsh::MinHash;
@@ -48,21 +43,26 @@ const LSH_WEIGHTS: Weights = Weights(0.5, 0.5);
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
     baskets_input: &mut InputSession<T, (u32, Basket), isize>,
-    num_items: usize,
-//) -> (ProbeHandle<T>, Trace<u32, (usize, (u64, u64, u64, u64)), T, isize>)
 )   -> ProbeHandle<T>
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
 
     worker.dataflow(|scope| {
         let LshParams { b: bands, r: bucket_key_length } = LshParams::find_optimal_params(
             JACCARD_THRESHOLD, NUM_PERMUTATION_FUNCS, &LSH_WEIGHTS);
-        let num_items = num_items.clone();
 
         let baskets = baskets_input.to_collection(scope);
         let group_vectors = baskets
             .reduce(|_user, baskets_and_multiplicities, out| {
                 for (basket, multiplicity) in baskets_and_multiplicities {
-                    let group = (*multiplicity + (*multiplicity % GROUP_SIZE)) / GROUP_SIZE;
+                    // TODO write a test for this...
+                    let group = if *multiplicity % GROUP_SIZE == 0 {
+                        *multiplicity / GROUP_SIZE
+                    } else {
+                        (*multiplicity + (GROUP_SIZE - (*multiplicity % GROUP_SIZE))) / GROUP_SIZE
+                    };
+
+                    assert_ne!(group, 0);
+
                     out.push(((group, (*basket).clone()), *multiplicity));
                 }
             })
@@ -73,37 +73,17 @@ pub fn tifu_knn<T>(
                     baskets_and_multiplicities,
                     GROUP_SIZE,
                     R_GROUP,
-                    num_items.clone(),
                 );
 
-                // We need to add one to not have the 0-th group vanish
-                let group_plus_one = *group + 1;
-
-                out.push((group_vector, group_plus_one));
+                out.push((group_vector, *group));
             })
             .map(|((user, _), group_vector)| (user, group_vector));
             //.inspect(|x| println!("Group vector {:?}", x));
 
         let user_vectors = group_vectors
             .reduce(move |user, vectors_and_multiplicities, out| {
-                let user_vector = user_vector(
-                    *user,
-                    vectors_and_multiplicities,
-                    R_USER,
-                    num_items.clone()
-                );
-
-                // Lazy way of retrieving the recommended items
-                let (indices, data) =
-                    user_vector.clone().into_sparse_vector(num_items).into_raw_storage();
-
-                let user_vector_items = indices.iter().zip(data.iter())
-                    .map(|(index, value)| format!("{}:{}", index, value))
-                    .collect::<Vec<_>>()
-                    .join(";");
-
-                println!("USER-{}-{}", user, user_vector_items);
-
+                let user_vector = user_vector(*user, vectors_and_multiplicities, R_USER);
+                println!("USER-{}-{}", user, user_vector.print());
                 out.push((user_vector, 1))
             });
             //.inspect(|x| println!("User vector {:?}", x));
@@ -153,8 +133,6 @@ pub fn tifu_knn<T>(
         let recommendations = cooccurring_users_with_user_vectors
             .reduce(move |(user_a, user_vector_a), users_b_vectors_mults, out| {
 
-                let num_items = num_items.clone();
-
                 let indices_a = &user_vector_a.indices;
                 // TODO identify top-k neighbors, this should use a heap to reduce memory
                 let mut similarities = Vec::with_capacity(users_b_vectors_mults.len());
@@ -162,7 +140,6 @@ pub fn tifu_knn<T>(
                 for (index, ((_user_b, user_vector_b), _)) in users_b_vectors_mults.iter().enumerate() {
                     let indices_b = &user_vector_b.indices;
                     let mut intersection = 0;
-                    // TODO this can be much faster as the indices should be sorted
                     for index_a in indices_a {
                         if indices_b.contains(&index_a) {
                             intersection += 1;
@@ -179,54 +156,29 @@ pub fn tifu_knn<T>(
                 // TODO skip neighbor identification if we have <= K other vectors here!
                 let num_neighbors = cmp::min(similarities.len(), K);
 
-                let mut sum_of_neighbors: CsVec<f64> =  CsVec::empty(num_items);
+                let mut sum_of_neighbors = SparseItemVector::new();
+
                 for (index, _similarity) in similarities.iter().take(num_neighbors) {
                     let ((_, other_user_vector), _) = users_b_vectors_mults.get(*index).unwrap();
-                    // Remove copy & allocations here
-                    sum_of_neighbors = sum_of_neighbors.add(
-                        (*other_user_vector).clone().into_sparse_vector(num_items));
+                    sum_of_neighbors.plus(other_user_vector);
                 }
 
-                let mut own_vector = user_vector_a.clone().into_sparse_vector(num_items);
-                own_vector.mul_assign(ALPHA);
-
                 let neighbor_factor = (1.0 - ALPHA) * (1.0 / num_neighbors as f64);
-                sum_of_neighbors.mul_assign(neighbor_factor);
+                sum_of_neighbors.mult(neighbor_factor);
+                sum_of_neighbors.plus_mult(ALPHA, user_vector_a);
 
                 let recommendations =
-                    Embedding::new(*user_a as usize, own_vector.add(sum_of_neighbors));
+                    DiscretisedItemVector::new(*user_a as usize, sum_of_neighbors);
 
                 out.push((recommendations, 1));
             })
             .map(move |((user, _), recommendations)| {
-
-                // Lazy way of retrieving the recommended items
-                let (indices, data) =
-                    recommendations.clone().into_sparse_vector(num_items).into_raw_storage();
-
-                let recommended_items = indices.iter().zip(data.iter())
-                    .map(|(index, value)| format!("{}:{}", index, value))
-                    .collect::<Vec<_>>()
-                    .join(";");
-
-                println!("RECO-{}-{}", user, recommended_items);
-
+                println!("RECO-{}-{}", user, recommendations.print());
                 (user, recommendations)
             });
 
         recommendations
             //.inspect(|x| println!("RECO {:?}", x))
             .probe()
-
-        /*
-        // let mut probe = Handle::new();
-        //
-        // let arranged_bucketed_user_vectors = bucketed_user_vectors
-        //     .inspect(|x| println!("BUCKETING {:?}", x))
-        //     .arrange_by_key();
-        //
-        // arranged_bucketed_user_vectors.stream.probe_with(&mut probe);
-        //
-        // (probe, arranged_bucketed_user_vectors.trace) */
     })
 }

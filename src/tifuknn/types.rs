@@ -6,7 +6,6 @@ use std::cmp::Ord;
 use differential_dataflow::trace::implementations::ord::OrdValBatch;
 use differential_dataflow::trace::implementations::spine_fueled::Spine;
 use differential_dataflow::operators::arrange::TraceAgent;
-use super::sprs::CsVec;
 use std::hash::Hash;
 use std::collections::HashMap;
 
@@ -25,55 +24,73 @@ impl Basket {
 }
 
 #[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]
-pub struct Embedding {
+pub struct DiscretisedItemVector {
     pub id: usize,
     pub indices: Vec<usize>,
     pub data: Vec<u64>,
 }
 
-pub struct SparseVector {
+pub struct SparseItemVector {
     entries: HashMap<usize, f64>,
 }
 
-impl SparseVector {
-    fn mult(&mut self, mult: f64) {
+impl SparseItemVector {
+
+    pub fn new() -> Self {
+        SparseItemVector { entries: HashMap::new() }
+    }
+
+    pub fn mult(&mut self, mult: f64) {
         for (_, val) in self.entries.iter_mut() {
             *val *= mult;
         }
     }
 
-    fn plus_mult(&mut self, mult: f64, other: &Embedding) {
-        for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
+    pub fn plus_at(&mut self, index: usize, value: f64) {
+        let entry = self.entries.entry(index).or_insert(0.0);
+        *entry += value;
+    }
 
+    pub fn plus(&mut self, other: &DiscretisedItemVector) {
+        for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
+            let to_add = *other_val as f64 / DISCRETISATION_FACTOR;
+            let entry = self.entries.entry(*index).or_insert(0.0);
+            *entry += to_add;
+        }
+    }
+
+    pub fn plus_mult(&mut self, mult: f64, other: &DiscretisedItemVector) {
+        for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
+            let to_add = (*other_val as f64 / DISCRETISATION_FACTOR) * mult;
+            let entry = self.entries.entry(*index).or_insert(0.0);
+            *entry += to_add;
         }
     }
 }
 
-
-
-
 const DISCRETISATION_FACTOR: f64 = 1_000_000_000.0;
 
-impl Embedding {
-    pub fn new(id: usize, vector: CsVec<f64>) -> Self {
-        let (indices, data) = vector.into_raw_storage();
-        // TODO we need to work with limited precision here to be able to compute equalities
-        let discretised_data: Vec<u64> = data.iter()
-            .map(|value| (value * DISCRETISATION_FACTOR) as u64)
-            .collect();
+impl DiscretisedItemVector {
 
-        Embedding { id, indices, data: discretised_data }
+    pub fn new(id: usize, vector: SparseItemVector) -> Self {
+        // TODO optimise later
+        let mut indices = Vec::with_capacity(vector.entries.len());
+        let mut data = Vec::with_capacity(vector.entries.len());
+        for (index, value) in vector.entries {
+            indices.push(index);
+            data.push((value * DISCRETISATION_FACTOR) as u64);
+        }
+
+        DiscretisedItemVector { id, indices, data }
     }
 
-    pub fn into_sparse_vector(self, num_items: usize) -> CsVec<f64> {
-
-        let undiscretised_data: Vec<f64> = self.data.iter()
-            .map(|value| *value as f64 / DISCRETISATION_FACTOR)
-            .collect();
-
-        CsVec::new(num_items, self.indices, undiscretised_data)
+    pub fn print(&self) -> String {
+        // TODO sort them
+        self.indices.iter().zip(self.data.iter())
+            .map(|(index, value)| format!("{}:{}", index, (*value as f64 / DISCRETISATION_FACTOR)))
+            .collect::<Vec<_>>()
+            .join(";")
     }
-
 }
 
 #[derive(Eq,PartialEq,Debug,Abomonation,Clone,Hash,Ord,PartialOrd)]
