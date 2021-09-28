@@ -6,7 +6,7 @@ use timely::dataflow::Scope;
 
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Join, Threshold, Reduce, Consolidate};//, Count};
+use differential_dataflow::operators::{Join, Threshold, Reduce, Consolidate};
 use differential_dataflow::operators::arrange::ArrangeByKey;
 
 use crate::vsknn::types::{SessionId, ItemId, Scored, UnsafeF64, Similarity, OrderedSessionItem, Order, Trace};
