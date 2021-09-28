@@ -46,24 +46,21 @@ impl SparseItemVector {
         }
     }
 
+    #[inline]
     pub fn plus_at(&mut self, index: usize, value: f64) {
         let entry = self.entries.entry(index).or_insert(0.0);
         *entry += value;
     }
 
     pub fn plus(&mut self, other: &DiscretisedItemVector) {
-        for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
-            let to_add = *other_val as f64 / DISCRETISATION_FACTOR;
-            let entry = self.entries.entry(*index).or_insert(0.0);
-            *entry += to_add;
-        }
+        // The compiler should remove the multiplication for us
+        self.plus_mult(1.0, other);
     }
 
     pub fn plus_mult(&mut self, mult: f64, other: &DiscretisedItemVector) {
         for (index, other_val) in other.indices.iter().zip(other.data.iter()) {
             let to_add = (*other_val as f64 / DISCRETISATION_FACTOR) * mult;
-            let entry = self.entries.entry(*index).or_insert(0.0);
-            *entry += to_add;
+            self.plus_at(*index, to_add)
         }
     }
 }

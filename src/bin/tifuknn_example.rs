@@ -1,6 +1,5 @@
 extern crate timely;
 extern crate differential_dataflow;
-extern crate sprs;
 
 use differential_dataflow::input::InputSession;
 
