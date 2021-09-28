@@ -10,11 +10,9 @@ fn main() {
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
-        //let num_items: usize = 4;
-
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input);//, num_items);
+        let probe = tifu_knn(worker, &mut baskets_input);
 
         baskets_input.advance_to(1);
 
