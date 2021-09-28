@@ -38,7 +38,7 @@ pub (crate) fn user_vectors<G: Scope>(
                 *group as usize,
                 baskets_and_multiplicities,
                 params.group_size,
-                params.r_group,
+                params.r_basket,
             );
 
             out.push((group_vector, *group));
@@ -48,7 +48,7 @@ pub (crate) fn user_vectors<G: Scope>(
 
     let user_vectors = group_vectors
         .reduce(move |user, vectors_and_multiplicities, out| {
-            let user_vector = user_vector(*user, vectors_and_multiplicities, params.r_user);
+            let user_vector = user_vector(*user, vectors_and_multiplicities, params.r_group);
             println!("USER-{}-{}", user, user_vector.print());
             out.push((user_vector, 1))
         });

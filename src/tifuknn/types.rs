@@ -16,8 +16,8 @@ pub type Trace<K, V, T, R> = TraceAgent<Spine<K, V, T, R, Rc<OrdValBatch<K, V, T
 #[derive(Debug, Clone, Copy)]
 pub struct HyperParams {
     pub group_size: isize,
+    pub r_basket: f64,
     pub r_group: f64,
-    pub r_user: f64,
     pub random_seed: u64,
     pub k: usize,
     pub alpha: f64,
