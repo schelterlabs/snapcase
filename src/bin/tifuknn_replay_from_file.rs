@@ -17,8 +17,8 @@ fn main() {
 
         let params = HyperParams {
             group_size: 7,
-            r_basket: 0.7,
-            r_group: 0.9,
+            r_basket: 0.9,
+            r_group: 0.7,
             random_seed: 42,
             k: 300,
             alpha: 0.7,
