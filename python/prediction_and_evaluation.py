@@ -144,9 +144,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--user_vector_path", default="../tifu.txt")
-    parser.add_argument("--history_path", default="../datasets/nbr/TaFang_history_NB.csv")
-    parser.add_argument("--ground_truth_path", default="../datasets/nbr/TaFang_future_NB.csv")
+    parser.add_argument("--user_vector_path", default="../tifu-Instacart.txt")
+    parser.add_argument("--history_path", default="../datasets/nbr/Instacart_history.csv")
+    parser.add_argument("--ground_truth_path", default="../datasets/nbr/Instacart_future.csv")
     parser.add_argument("--num_neighbours", default=300, type=int, help="the number of neighbors")
     parser.add_argument("--alpha", default=0.7, type=float, help="the prediction vector weight")
     parser.add_argument("--topn", default=20, type=int, help="the topn recommendations")

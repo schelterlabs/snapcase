@@ -11,17 +11,17 @@ fn main() {
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
-        let (baskets, _num_items) = baskets_from_file("./datasets/nbr/TaFang_history_NB.csv");
+        let (baskets, _num_items) = baskets_from_file("./datasets/nbr/Instacart_history.csv");
 
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
 
         let params = HyperParams {
-            group_size: 7,
+            group_size: 3,
             r_basket: 0.9,
             r_group: 0.7,
             random_seed: 42,
-            k: 300,
-            alpha: 0.7,
+            k: 900,
+            alpha: 0.9,
             num_permutation_functions: 1280,
             jaccard_threshold: 0.1,
         };
