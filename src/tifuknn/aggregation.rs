@@ -64,3 +64,57 @@ pub fn user_vector(
 
     DiscretisedItemVector::new(user as usize, user_vector)
 }
+
+pub fn top_k_neighbors_by_jaccard(
+    user_vector: &DiscretisedItemVector,
+    neighbor_vectors: &[(&DiscretisedItemVector, isize)],
+    k: usize
+) -> Vec<usize> {
+    // TODO We might turn this into a hashset for fast look ups
+    let items = &user_vector.indices;
+    // TODO identify top-k neighbors, this should use a heap to reduce memory
+    let mut similarities = Vec::with_capacity(neighbor_vectors.len());
+
+    for (index, (neighbor_vector, _mult)) in neighbor_vectors.iter().enumerate() {
+        let neighbor_items = &neighbor_vector.indices;
+        let mut intersection = 0;
+        for item in items {
+            if neighbor_items.contains(&item) {
+                intersection += 1;
+            }
+        }
+        let jaccard_similarity = intersection as f64 /
+            (items.len() + neighbor_items.len() - intersection) as f64;
+        similarities.push((index, jaccard_similarity))
+    }
+
+    // We like to live dangerous
+    similarities.sort_by(|(_, sim_a), (_, sim_b)| sim_b.partial_cmp(sim_a).unwrap());
+    // TODO can we avoid the collect?
+    similarities.iter()
+        .take(k)
+        .map(|(index, _)| *index)
+        .collect()
+}
+
+pub fn recommendation(
+    top_k_neighbor_indices: Vec<usize>,
+    user_vector: &DiscretisedItemVector,
+    neighbor_vectors: &[(&DiscretisedItemVector, isize)],
+    alpha: f64,
+) -> DiscretisedItemVector {
+
+    let num_neighbors = top_k_neighbor_indices.len();
+    let mut sum_of_neighbors = SparseItemVector::new();
+
+    for index in top_k_neighbor_indices {
+        let (other_user_vector, _multiplicity) = neighbor_vectors.get(index).unwrap();
+        sum_of_neighbors.plus(other_user_vector);
+    }
+
+    let neighbor_factor = (1.0 - alpha) * (1.0 / num_neighbors as f64);
+    sum_of_neighbors.mult(neighbor_factor);
+    sum_of_neighbors.plus_mult(alpha, &user_vector);
+
+    DiscretisedItemVector::new(user_vector.id, sum_of_neighbors)
+}

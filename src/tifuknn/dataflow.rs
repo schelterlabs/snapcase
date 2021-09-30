@@ -1,14 +1,13 @@
-use crate::tifuknn::types::{Basket, DiscretisedItemVector, BucketKey, SparseItemVector, HyperParams};
-use crate::tifuknn::aggregation::{group_vector, user_vector};
+use crate::tifuknn::types::{Basket, DiscretisedItemVector, BucketKey, HyperParams};
+use crate::tifuknn::aggregation::{group_vector, user_vector, top_k_neighbors_by_jaccard, recommendation};
 
 use timely::dataflow::Scope;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::Collection;
-use differential_dataflow::operators::{Join, Reduce, Threshold};
+use differential_dataflow::operators::{Join, Reduce};
 use differential_dataflow::operators::arrange::ArrangeByKey;
 
 use datasketch_minhash_lsh::{MinHash, LshParams, Weights};
-use std::cmp;
 
 pub (crate) fn user_vectors<G: Scope>(
     baskets: &Collection<G, (u32, Basket), isize>,
@@ -92,11 +91,8 @@ pub (crate) fn lsh_recommendations<G: Scope>(
         });
 
     let cooccurring_users = bucketed_user_vectors
-        .join(&bucketed_user_vectors)
-        .flat_map(|(_bucket_key, (user_a, user_b))| { // TODO maybe we should do this later?
-            [(user_a, user_b), (user_b, user_a)]
-        })
-        .distinct();
+        .join_map(&bucketed_user_vectors, |_bucket_key, user_a, user_b| (*user_a, *user_b))
+        .filter(|(user_a, user_b)| user_a < user_b);
 
     // Manual arrangement due to use in multiple joins, maybe we can use delta joins here?
     let arranged_user_vectors = user_vectors.arrange_by_key();
@@ -110,55 +106,49 @@ pub (crate) fn lsh_recommendations<G: Scope>(
         .join_map(&cooccurring_users_with_left_user_vectors,
                   |user_b, user_vector_b, (user_a, user_vector_a)| {
                       ((*user_a, user_vector_a.clone()), (*user_b, user_vector_b.clone()))
-                  });
+                  })
+        .flat_map(|((user_a, user_vector_a), (user_b, user_vector_b))| {
+            [((user_a, user_vector_a.clone()), user_vector_b.clone()),
+                ((user_b, user_vector_b.clone()), user_vector_a.clone())]
+        });
 
     let recommendations = cooccurring_users_with_user_vectors
-        .reduce(move |(user_a, user_vector_a), users_b_vectors_mults, out| {
+        .reduce(move |(user, user_vector), neighbor_vectors, out| {
 
-            let indices_a = &user_vector_a.indices;
-            // TODO identify top-k neighbors, this should use a heap to reduce memory
-            let mut similarities = Vec::with_capacity(users_b_vectors_mults.len());
+            // TODO can we avoid having to allocate a Vec for this?
+            let top_k_neighbors: Vec<usize> = if neighbor_vectors.len() > params.k {
+                top_k_neighbors_by_jaccard(user_vector, neighbor_vectors, params.k)
+            } else {
+                (0..neighbor_vectors.len()).collect()
+            };
 
-            for (index, ((_user_b, user_vector_b), _)) in users_b_vectors_mults.iter().enumerate() {
-                let indices_b = &user_vector_b.indices;
-                let mut intersection = 0;
-                for index_a in indices_a {
-                    if indices_b.contains(&index_a) {
-                        intersection += 1;
-                    }
-                }
-                let jaccard_similarity = intersection as f64 /
-                    (indices_a.len() + indices_b.len() - intersection) as f64;
-                similarities.push((index, jaccard_similarity))
-            }
+            // let num_neighbors = top_k_neighbors.len();
+            // let mut sum_of_neighbors = SparseItemVector::new();
+            //
+            // for index in top_k_neighbors {
+            //     let (other_user_vector, _multiplicity) = neighbor_vectors.get(index).unwrap();
+            //     sum_of_neighbors.plus(other_user_vector);
+            // }
+            //
+            // let neighbor_factor = (1.0 - params.alpha) * (1.0 / num_neighbors as f64);
+            // sum_of_neighbors.mult(neighbor_factor);
+            // sum_of_neighbors.plus_mult(params.alpha, user_vector);
+            //
+            // let recommendations =
+            //     DiscretisedItemVector::new(*user as usize, sum_of_neighbors);
 
-            // We like to live dangerous
-            similarities.sort_by(|(_, sim_a), (_, sim_b)| sim_b.partial_cmp(sim_a).unwrap());
+            let recommendations = recommendation(
+                top_k_neighbors,
+                user_vector,
+                neighbor_vectors,
+                params.alpha
+            );
 
-            // TODO skip neighbor identification if we have <= K other vectors here!
-            let num_neighbors = cmp::min(similarities.len(), params.k);
-
-            let mut sum_of_neighbors = SparseItemVector::new();
-
-            for (index, _similarity) in similarities.iter().take(num_neighbors) {
-                let ((_, other_user_vector), _) = users_b_vectors_mults.get(*index).unwrap();
-                sum_of_neighbors.plus(other_user_vector);
-            }
-
-            let neighbor_factor = (1.0 - params.alpha) * (1.0 / num_neighbors as f64);
-            sum_of_neighbors.mult(neighbor_factor);
-            sum_of_neighbors.plus_mult(params.alpha, user_vector_a);
-
-            let recommendations =
-                DiscretisedItemVector::new(*user_a as usize, sum_of_neighbors);
-
-            println!("RECO-{}-{}", user_a, recommendations.print());
+            println!("RECO-{}-{}", user, recommendations.print());
 
             out.push((recommendations, 1));
         })
-        .map(move |((user, _), recommendations)| {
-            (user, recommendations)
-        });
+        .map(move |((user, _), recommendations)| (user, recommendations));
 
     recommendations
 }

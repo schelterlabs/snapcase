@@ -31,6 +31,24 @@ def load_user_vectors_from_file(path, vector_len):
         user_vector_dict[int(user_id)] = user_vector
     return customer_ids, user_vector_dict
 
+def load_recommendation_vectors_from_file(path, vector_len):
+    with open(path, "r") as fp:
+        all_lines = fp.readlines()
+    customer_ids = []
+    user_vector_dict = {}
+    user_rows = [line for line in all_lines if line.startswith("RECO-")]  # filter user vector rows
+    for r in user_rows:
+        _, user_id, vector_str = r.split("-")
+        customer_ids.append(int(user_id))
+        # convert user vector to a numpy array
+        user_vector = np.zeros(vector_len)
+        vector_str = vector_str.strip()
+        idx_vals = vector_str.split(";")
+        for x in idx_vals:
+            idx, val = x.split(":")
+            user_vector[int(idx)] = float(val)
+        user_vector_dict[int(user_id)] = user_vector
+    return customer_ids, user_vector_dict
 
 def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=20, test_split=0.1):
     # load_history dataset
@@ -38,6 +56,10 @@ def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=
     ds_hist.load_from_file(history_path)
     # load user vectors
     customer_ids, user_vector_dict = load_user_vectors_from_file(path=user_vector_path,
+                                                                 vector_len=len(ds_hist.item_ids))
+
+    print("Loading DD recommendations...")
+    customer_ids_reco, reco_vector_dict = load_recommendation_vectors_from_file(path=user_vector_path,
                                                                  vector_len=len(ds_hist.item_ids))
 
     customer_ids.sort()
@@ -61,21 +83,25 @@ def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=
 
     print(f"Num of training users: {len(customer_ids)}")
     print(f"Num of test users: {len(test_customer_ids)}")
-    print("Searching for neighbors for test users in training users...")
-    # find neighbors
-    nbrs = NearestNeighbors(n_neighbors=num_neighbours, algorithm='brute').fit(training_user_mat)
-    distances, indices = nbrs.kneighbors(test_user_mat)
-    print(f"Started generating predictions...")
-    final_prediction_vector = dict()
-    # the indices are row number in training_user_mat, note it includes the test user itself!
-    for index_list in indices:
-        # index from 1 to skip the target user herself
-        neighbours = training_user_mat[index_list[1:], :]
-        nbrs_mean = np.mean(neighbours, axis=0)
-        target_cust_idx = index_list[0]
-        target_cust_id = index_to_cid[target_cust_idx]
-        final_prediction_vector[target_cust_id] = alpha * training_user_mat[target_cust_idx] + (1 - alpha) * nbrs_mean
-    # now we just need to sort the prediction vector to arrive at the final top n predictions
+
+#     print("Searching for neighbors for test users in training users...")
+#     # find neighbors
+#     nbrs = NearestNeighbors(n_neighbors=num_neighbours, algorithm='brute').fit(training_user_mat)
+#     distances, indices = nbrs.kneighbors(test_user_mat)
+#     print(f"Started generating predictions...")
+#     final_prediction_vector = dict()
+#     # the indices are row number in training_user_mat, note it includes the test user itself!
+#     for index_list in indices:
+#         # index from 1 to skip the target user herself
+#         neighbours = training_user_mat[index_list[1:], :]
+#         nbrs_mean = np.mean(neighbours, axis=0)
+#         target_cust_idx = index_list[0]
+#         target_cust_id = index_to_cid[target_cust_idx]
+#         final_prediction_vector[target_cust_id] = alpha * training_user_mat[target_cust_idx] + (1 - alpha) * nbrs_mean
+#     # now we just need to sort the prediction vector to arrive at the final top n predictions
+#
+    final_prediction_vector = reco_vector_dict
+
     topn_recommendations = dict()
     for cid, pred_v in final_prediction_vector.items():
         topn_items = pred_v.argsort()[::-1][:topn] + 1
