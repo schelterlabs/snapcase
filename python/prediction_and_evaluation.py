@@ -84,22 +84,6 @@ def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=
     print(f"Num of training users: {len(customer_ids)}")
     print(f"Num of test users: {len(test_customer_ids)}")
 
-#     print("Searching for neighbors for test users in training users...")
-#     # find neighbors
-#     nbrs = NearestNeighbors(n_neighbors=num_neighbours, algorithm='brute').fit(training_user_mat)
-#     distances, indices = nbrs.kneighbors(test_user_mat)
-#     print(f"Started generating predictions...")
-#     final_prediction_vector = dict()
-#     # the indices are row number in training_user_mat, note it includes the test user itself!
-#     for index_list in indices:
-#         # index from 1 to skip the target user herself
-#         neighbours = training_user_mat[index_list[1:], :]
-#         nbrs_mean = np.mean(neighbours, axis=0)
-#         target_cust_idx = index_list[0]
-#         target_cust_id = index_to_cid[target_cust_idx]
-#         final_prediction_vector[target_cust_id] = alpha * training_user_mat[target_cust_idx] + (1 - alpha) * nbrs_mean
-#     # now we just need to sort the prediction vector to arrive at the final top n predictions
-#
     final_prediction_vector = reco_vector_dict
 
     topn_recommendations = dict()
