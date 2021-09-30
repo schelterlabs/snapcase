@@ -32,7 +32,9 @@ def load_user_vectors_from_file(path, vector_len):
     return customer_ids, user_vector_dict
 
 
-def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=20, test_split=0.1):
+def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=20, test_split=0.1,
+            use_lsh=False,
+            threshold=0.1):
     # load_history dataset
     ds_hist = Dataset()
     ds_hist.load_from_file(history_path)
@@ -63,8 +65,16 @@ def predict(user_vector_path, history_path, num_neighbours=200, alpha=0.5, topn=
     print(f"Num of test users: {len(test_customer_ids)}")
     print("Searching for neighbors for test users in training users...")
     # find neighbors
-    nbrs = NearestNeighbors(n_neighbors=num_neighbours, algorithm='brute').fit(training_user_mat)
-    distances, indices = nbrs.kneighbors(test_user_mat)
+    if not use_lsh:
+        print("using exact knn...")
+        nbrs = NearestNeighbors(n_neighbors=num_neighbours, algorithm='brute').fit(training_user_mat)
+        distances, indices = nbrs.kneighbors(test_user_mat)
+    else:
+        print("using lsh...")
+        from lsh import MyMinHashLSH
+        ms = MyMinHashLSH(num_perm=1280, threshold=threshold)
+        ms.fit(training_user_mat)
+        distances, indices = ms.kneighbors(test_user_mat)
     print(f"Started generating predictions...")
     final_prediction_vector = dict()
     # the indices are row number in training_user_mat, note it includes the test user itself!
@@ -119,6 +129,8 @@ def main(args):
         history_path=args.history_path,
         alpha=args.alpha,
         topn=args.topn,
+        use_lsh=args.use_lsh,
+        threshold=args.threshold,
         test_split=args.test_split)
     print(f"Started loading the ground truth labels")
     ground_truth_data = Dataset()
@@ -144,13 +156,15 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--user_vector_path", default="../tifu.txt")
-    parser.add_argument("--history_path", default="../datasets/nbr/TaFang_history_NB.csv")
-    parser.add_argument("--ground_truth_path", default="../datasets/nbr/TaFang_future_NB.csv")
+    parser.add_argument("--user_vector_path", default="../tifu-Instacart.txt")
+    parser.add_argument("--history_path", default="../datasets/nbr/Instacart_history.csv")
+    parser.add_argument("--ground_truth_path", default="../datasets/nbr/Instacart_future.csv")
     parser.add_argument("--num_neighbours", default=300, type=int, help="the number of neighbors")
     parser.add_argument("--alpha", default=0.7, type=float, help="the prediction vector weight")
     parser.add_argument("--topn", default=20, type=int, help="the topn recommendations")
     parser.add_argument("--test_split", default=1.0, type=float, help="the fraction of users we want to evaluate")
+    parser.add_argument("--use_lsh", default=True, type=bool, help="if true, use lsh to search neighbors with threshold")
+    parser.add_argument("--threshold", default=0.1, type=float, help="the threshold param for lsh")
     args = parser.parse_args()
     print(args)
     main(args)
