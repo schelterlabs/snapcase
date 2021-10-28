@@ -5,6 +5,7 @@ extern crate datasketch_minhash_lsh;
 pub mod types;
 pub mod aggregation;
 pub mod dataflow;
+pub mod hyperparams;
 
 use crate::tifuknn::types::Basket;
 

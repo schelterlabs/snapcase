@@ -48,7 +48,7 @@ pub (crate) fn user_vectors<G: Scope>(
     let user_vectors = group_vectors
         .reduce(move |user, vectors_and_multiplicities, out| {
             let user_vector = user_vector(*user, vectors_and_multiplicities, params.r_group);
-            println!("USER-{}-{}", user, user_vector.print());
+            //println!("USER-{}-{}", user, user_vector.print());
             out.push((user_vector, 1))
         });
 
@@ -113,7 +113,7 @@ pub (crate) fn lsh_recommendations<G: Scope>(
         });
 
     let recommendations = cooccurring_users_with_user_vectors
-        .reduce(move |(user, user_vector), neighbor_vectors, out| {
+        .reduce(move |(_user, user_vector), neighbor_vectors, out| {
 
             // TODO can we avoid having to allocate a Vec for this?
             let top_k_neighbors: Vec<usize> = if neighbor_vectors.len() > params.k {
@@ -144,7 +144,7 @@ pub (crate) fn lsh_recommendations<G: Scope>(
                 params.alpha
             );
 
-            println!("RECO-{}-{}", user, recommendations.print());
+            //println!("RECO-{}-{}", user, recommendations.print());
 
             out.push((recommendations, 1));
         })

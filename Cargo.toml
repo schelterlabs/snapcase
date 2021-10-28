@@ -20,6 +20,14 @@ path = "src/bin/tifuknn_replay_from_file.rs"
 name = "tifuknn_example_incremental"
 path = "src/bin/tifuknn_example_incremental.rs"
 
+[[bin]]
+name = "icde_tifu_deletion_performance"
+path = "src/bin/icde_tifu_deletion_performance.rs"
+
+[[bin]]
+name = "icde_vs_deletion_performance"
+path = "src/bin/icde_vs_deletion_performance.rs"
+
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]
 timely = "0.12.0"

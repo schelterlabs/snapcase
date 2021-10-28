@@ -46,7 +46,8 @@ pub fn update_recommendations(
     historical_sessions_input.advance_to(time);
     historical_sessions_input.flush();
 
-    worker.step_while(|| probe.less_than(evolving_sessions_input.time()) && probe.less_than(historical_sessions_input.time()));
+    worker.step_while(|| probe.less_than(evolving_sessions_input.time()) &&
+        probe.less_than(historical_sessions_input.time()));
 
     let duration = start.elapsed();
     *latency_in_micros = duration.as_micros();

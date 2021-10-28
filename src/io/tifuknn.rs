@@ -7,7 +7,7 @@ use path_absolutize::Absolutize;
 pub fn baskets_from_file(path_to_file: &str) -> (Vec<(u32, usize, Vec<usize>)>, usize) {
 
     let path: &Path = Path::new(path_to_file);
-    println!("Trying to read path: {:?}", path.absolutize().unwrap());
+    println!("# Trying to read path: {:?}", path.absolutize().unwrap());
 
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -77,7 +77,7 @@ pub fn baskets_from_file(path_to_file: &str) -> (Vec<(u32, usize, Vec<usize>)>, 
             items.sort()
         });
 
-    println!("Found {} baskets for {} items", baskets.len(), num_items);
+    println!("# Found {} baskets for {} items", baskets.len(), num_items);
 
     (baskets, num_items)
 }
