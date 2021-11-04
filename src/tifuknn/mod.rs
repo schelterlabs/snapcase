@@ -23,6 +23,7 @@ use crate::tifuknn::types::HyperParams;
 pub fn tifu_knn<T>(
     worker: &mut Worker<Allocator>,
     baskets_input: &mut InputSession<T, (u32, Basket), isize>,
+    query_users_input: &mut InputSession<T, u32, isize>,
     hyperparams: HyperParams,
 )   -> ProbeHandle<T>
     where T: Timestamp + TotalOrder + Lattice + Refines<()> {
@@ -30,12 +31,16 @@ pub fn tifu_knn<T>(
     worker.dataflow(|scope| {
 
         let baskets = baskets_input.to_collection(scope);
+        let query_users = query_users_input.to_collection(scope);
 
         let user_vectors = dataflow::user_vectors(&baskets, hyperparams);
-        let recommendations = dataflow::lsh_recommendations(&user_vectors, hyperparams);
+        let recommendations = dataflow::lsh_recommendations(
+            &user_vectors,
+            &query_users,
+            hyperparams
+        );
 
         recommendations
-            //.inspect(|x| println!("RECO {:?}", x))
             .probe()
     })
 }

@@ -21,12 +21,12 @@ name = "tifuknn_example_incremental"
 path = "src/bin/tifuknn_example_incremental.rs"
 
 [[bin]]
-name = "icde_tifu_deletion_performance"
-path = "src/bin/icde_tifu_deletion_performance.rs"
+name = "vldb_tifu_deletion_performance"
+path = "src/bin/vldb_tifu_deletion_performance.rs"
 
 [[bin]]
-name = "icde_vs_deletion_performance"
-path = "src/bin/icde_vs_deletion_performance.rs"
+name = "vldb_vs_deletion_performance"
+path = "src/bin/vldb_vs_deletion_performance.rs"
 
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]

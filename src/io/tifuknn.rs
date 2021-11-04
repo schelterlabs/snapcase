@@ -4,6 +4,17 @@ use std::cmp::max;
 use std::path::Path;
 use path_absolutize::Absolutize;
 
+pub fn users_from_baskets(baskets: &Vec<(u32, usize, Vec<usize>)>) -> Vec<u32> {
+    let mut user_ids: Vec<u32> = baskets.iter()
+        .map(|(user, _, _)| *user)
+        .collect();
+
+    user_ids.sort_unstable();
+    user_ids.dedup();
+
+    user_ids
+}
+
 pub fn baskets_from_file(path_to_file: &str) -> (Vec<(u32, usize, Vec<usize>)>, usize) {
 
     let path: &Path = Path::new(path_to_file);

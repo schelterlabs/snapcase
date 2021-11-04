@@ -57,6 +57,7 @@ pub (crate) fn user_vectors<G: Scope>(
 
 pub (crate) fn lsh_recommendations<G: Scope>(
     user_vectors: &Collection<G, (u32, DiscretisedItemVector), isize>,
+    query_users: &Collection<G, u32, isize>,
     params: HyperParams,
 ) -> Collection<G, (u32, DiscretisedItemVector), isize>
     where G::Timestamp: Lattice+Ord
@@ -92,25 +93,30 @@ pub (crate) fn lsh_recommendations<G: Scope>(
 
     let cooccurring_users = bucketed_user_vectors
         .join_map(&bucketed_user_vectors, |_bucket_key, user_a, user_b| (*user_a, *user_b))
-        .filter(|(user_a, user_b)| user_a < user_b);
+        //.filter(|(user_a, user_b)| user_a < user_b);
+        .filter(|(user_a, user_b)| user_a != user_b);
+
+    // We are only interest in the computing outputs for our query users
+    let cooccurring_users_of_interest =
+        cooccurring_users.semijoin(&query_users);
 
     // Manual arrangement due to use in multiple joins, maybe we can use delta joins here?
     let arranged_user_vectors = user_vectors.arrange_by_key();
 
     let cooccurring_users_with_left_user_vectors = arranged_user_vectors
-        .join_map(&cooccurring_users, |user_a, user_vector_a, user_b| {
+        .join_map(&cooccurring_users_of_interest, |user_a, user_vector_a, user_b| {
             (*user_b, (*user_a, user_vector_a.clone()))
         });
 
     let cooccurring_users_with_user_vectors = arranged_user_vectors
         .join_map(&cooccurring_users_with_left_user_vectors,
-                  |user_b, user_vector_b, (user_a, user_vector_a)| {
-                      ((*user_a, user_vector_a.clone()), (*user_b, user_vector_b.clone()))
-                  })
-        .flat_map(|((user_a, user_vector_a), (user_b, user_vector_b))| {
-            [((user_a, user_vector_a.clone()), user_vector_b.clone()),
-                ((user_b, user_vector_b.clone()), user_vector_a.clone())]
+                  |_user_b, user_vector_b, (user_a, user_vector_a)| {
+                      ((*user_a, user_vector_a.clone()), user_vector_b.clone())
         });
+        // .flat_map(|((user_a, user_vector_a), (user_b, user_vector_b))| {
+        //     [((user_a, user_vector_a.clone()), user_vector_b.clone()),
+        //         ((user_b, user_vector_b.clone()), user_vector_a.clone())]
+        // });
 
     let recommendations = cooccurring_users_with_user_vectors
         .reduce(move |(_user, user_vector), neighbor_vectors, out| {
@@ -122,21 +128,6 @@ pub (crate) fn lsh_recommendations<G: Scope>(
                 (0..neighbor_vectors.len()).collect()
             };
 
-            // let num_neighbors = top_k_neighbors.len();
-            // let mut sum_of_neighbors = SparseItemVector::new();
-            //
-            // for index in top_k_neighbors {
-            //     let (other_user_vector, _multiplicity) = neighbor_vectors.get(index).unwrap();
-            //     sum_of_neighbors.plus(other_user_vector);
-            // }
-            //
-            // let neighbor_factor = (1.0 - params.alpha) * (1.0 / num_neighbors as f64);
-            // sum_of_neighbors.mult(neighbor_factor);
-            // sum_of_neighbors.plus_mult(params.alpha, user_vector);
-            //
-            // let recommendations =
-            //     DiscretisedItemVector::new(*user as usize, sum_of_neighbors);
-
             let recommendations = recommendation(
                 top_k_neighbors,
                 user_vector,
@@ -144,7 +135,7 @@ pub (crate) fn lsh_recommendations<G: Scope>(
                 params.alpha
             );
 
-            //println!("RECO-{}-{}", user, recommendations.print());
+            //println!("RECO-{}-{}", _user, recommendations.print());
 
             out.push((recommendations, 1));
         })

@@ -22,66 +22,84 @@ fn main() {
         };
 
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
+        let mut query_users_input: InputSession<_, u32,_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input, params);
+        let probe = tifu_knn(worker, &mut baskets_input, &mut query_users_input, params);
+
+        query_users_input.insert(0);
 
         baskets_input.advance_to(1);
+        query_users_input.advance_to(1);
 
         // v_{b_1} = [1 1 1 0]
         baskets_input.update((0, Basket::new(1, vec![0, 1, 2])), 1);
 
         baskets_input.advance_to(2);
+        query_users_input.advance_to(2);
         baskets_input.flush();
+        query_users_input.flush();
 
         println!("Processing to t=2");
         // v_{g_1} should be [1,1,1,0]
         // v_{u} should be [1,1,1,0]
 
-        worker.step_while(|| probe.less_than(baskets_input.time()));
+        worker.step_while(|| probe.less_than(baskets_input.time()) &&
+            probe.less_than(query_users_input.time()));
 
         // v_{b_2} = [0 1 1 1]
         baskets_input.update((0, Basket::new(1, vec![1, 2, 3])), 2);
 
         baskets_input.advance_to(3);
+        query_users_input.advance_to(3);
         baskets_input.flush();
+        query_users_input.flush();
 
         println!("Processing to t=3");
         // v_{g_1} should be [0.45,0.95,0.95,0.5]
         // v_{u} should be [0.45,0.95,0.95,0.5]
 
-        worker.step_while(|| probe.less_than(baskets_input.time()));
+        worker.step_while(|| probe.less_than(baskets_input.time()) &&
+            probe.less_than(query_users_input.time()));
 
         // v_{b_4} = [1 1 0 1]
         baskets_input.update((0, Basket::new(1, vec![0, 1, 3])), 3);
 
         baskets_input.advance_to(4);
+        query_users_input.advance_to(4);
         baskets_input.flush();
+        query_users_input.flush();
 
         println!("Processing to t=4");
         // v_{g_1} should not change
         // v_{g_2} should be [1,1,0,1]
         // v_{u} should be [0.66, 0.83, 0.33, 0.68]
 
-        worker.step_while(|| probe.less_than(baskets_input.time()));
+        worker.step_while(|| probe.less_than(baskets_input.time()) &&
+            probe.less_than(query_users_input.time()));
 
         // v_{b_4} = [0 0 1 1]
         baskets_input.update((0, Basket::new(1, vec![2, 3])), 4);
 
         baskets_input.advance_to(5);
+        query_users_input.advance_to(5);
         baskets_input.flush();
+        query_users_input.flush();
 
         println!("Processing to t=5");
         // v_{g_1} should not change
         // v_{g_2} should be [0.45,0.45,0.5,0.95]
         // v_{u} should be [0.38, 0.56, 0.58, 0.65]
 
-        worker.step_while(|| probe.less_than(baskets_input.time()));
+        worker.step_while(|| probe.less_than(baskets_input.time()) &&
+            probe.less_than(query_users_input.time()));
 
         // v_{b_5} = [1 1 1 1]
         baskets_input.update((0, Basket::new(1, vec![0, 1, 2, 3])), 5);
 
         baskets_input.advance_to(6);
+        query_users_input.advance_to(6);
         baskets_input.flush();
+        query_users_input.flush();
 
         println!("Processing to t=6");
         // v_{g_1} should not change
@@ -89,7 +107,8 @@ fn main() {
         // v_{g_3} should be [1,1,1,1]
         // v_{u} should be [0.51, 0.60, 0.61, 0.64]
 
-        worker.step_while(|| probe.less_than(baskets_input.time()));
+        worker.step_while(|| probe.less_than(baskets_input.time()) &&
+            probe.less_than(query_users_input.time()));
 
     }).unwrap();
 }
