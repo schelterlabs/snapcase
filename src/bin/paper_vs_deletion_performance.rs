@@ -22,16 +22,17 @@ use snapcase::vsknn::types::{SessionId, ItemId, OrderedSessionItem, Order};
 fn main() {
 
     let k: usize = 100;
-    let m: usize = 5000;
-    let num_samples_to_forget: usize = 1000;
+    let m: usize = 500;
+    let num_samples_to_forget: usize = 10_000;
 
-    for seed in [42] {
-        for num_active_sessions in [100, 1000, 10_000] {
-            for batch_size in [1, 10, 100] {
+    for seed in [42, 767, 9000909] {
+        for num_active_sessions in [/*100, 1000,*/ 10_000] {
+            //for batch_size in [1, 10, 100] {
+            for batch_size in [1] {
                 run_experiment(
-                    "ecom1m".to_owned(),
-                    "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
-                    "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
+                    "mkech".to_owned(),
+                    "./datasets/session/mkechinovoct-training.txt".to_owned(),
+                    "./datasets/session/mkechinovoct-test.txt".to_owned(),
                     k,
                     m,
                     num_active_sessions,
@@ -39,7 +40,7 @@ fn main() {
                     batch_size,
                     seed,
                 );
-/*
+
                 run_experiment(
                     "rsc15".to_owned(),
                     "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
@@ -62,7 +63,7 @@ fn main() {
                     num_samples_to_forget,
                     batch_size,
                     seed,
-                );*/
+                );
             }
         }
     }
@@ -80,8 +81,8 @@ fn run_experiment(
     seed: u64,
 ) {
 
-    let historical_sessions = io::vsknn::read_historical_sessions(&*historical_sessions_file);
-    let num_historical_sessions: usize = historical_sessions.len();
+    //let historical_sessions = io::vsknn::read_historical_sessions(&*historical_sessions_file);
+    //let num_historical_sessions: usize = historical_sessions.len();
 
     timely::execute_from_args(std::env::args(), move |worker| {
 
@@ -98,6 +99,9 @@ fn run_experiment(
             worker.index(),
             worker.peers(),
         );
+
+        // Approximate count of the number of historical sessions should be good enough
+        let num_historical_sessions = historical_sessions.len() * worker.peers();
 
         eprintln!("# Found {} interactions in historical sessions", historical_sessions.len());
 
@@ -118,9 +122,9 @@ fn run_experiment(
         eprintln!("# Loading {} historical interactions", historical_sessions.len());
 
         for (session, item, order) in &historical_sessions {
-            if *session % worker.peers() as u32 == worker.index() as u32 {
-                historical_sessions_input.insert((*session, (*item, Order::new(*order))));
-            }
+            //if *session % worker.peers() as u32 == worker.index() as u32 {
+            historical_sessions_input.insert((*session, (*item, Order::new(*order))));
+            //}
         }
 
         let mut recommmendations: HashMap<SessionId, HashMap<ItemId, f64>> = HashMap::new();
@@ -128,9 +132,10 @@ fn run_experiment(
 
         let session_ids: Vec<_> = evolving_sessions.keys().sorted().collect();
 
-        // TODO this is different per worker, need other approach when working with multiple threads
+        let num_active_sessions_per_worker = num_active_sessions / worker.peers();
+
         let random_session_ids =
-            session_ids.choose_multiple(&mut rng, num_active_sessions);
+            session_ids.choose_multiple(&mut rng, num_active_sessions_per_worker);
 
         for evolving_session_id in random_session_ids {
 
@@ -141,12 +146,12 @@ fn run_experiment(
             for session_length in 1..random_session_length {
                 let current_item = &evolving_session_items[session_length - 1];
 
-                if **evolving_session_id % worker.peers() as u32 == worker.index() as u32 {
-                    evolving_sessions_input.update(
-                        (**evolving_session_id, *current_item),
-                        session_length as isize,
-                    );
-                }
+                //if **evolving_session_id % worker.peers() as u32 == worker.index() as u32 {
+                evolving_sessions_input.update(
+                    (**evolving_session_id, *current_item),
+                    session_length as isize,
+                );
+                //}
             }
         }
 
@@ -166,15 +171,17 @@ fn run_experiment(
 
         println!("# Indexed data for {} evolving sessions", num_active_sessions);
 
+        let num_samples_to_forget_per_worker = num_samples_to_forget / worker.peers();
+
         let random_clicks =
-            historical_sessions.choose_multiple(&mut rng, num_samples_to_forget);
+            historical_sessions.choose_multiple(&mut rng, num_samples_to_forget_per_worker);
 
         let mut batch_counter = 0;
 
         for (session, item, order) in random_clicks {
-            if *session % worker.peers() as u32 == worker.index() as u32 {
-                historical_sessions_input.remove((*session, (*item, Order::new(*order))));
-            }
+            //if *session % worker.peers() as u32 == worker.index() as u32 {
+            historical_sessions_input.remove((*session, (*item, Order::new(*order))));
+            //}
 
             batch_counter += 1;
 
@@ -194,8 +201,9 @@ fn run_experiment(
                 );
 
                 println!(
-                    "vs,deletion_performance,{},{},{},{},{},{}",
+                    "vs,deletion_performance,{},{},{},{},{},{},{}",
                     dataset_name,
+                    seed,
                     worker.index(),
                     worker.peers(),
                     batch_size,

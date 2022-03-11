@@ -4,6 +4,18 @@ use std::cmp::max;
 use std::path::Path;
 use path_absolutize::Absolutize;
 
+// pub fn users_from_baskets_partitioned(
+//     baskets: &Vec<(u32, usize, Vec<usize>)>,
+//     partition: usize,
+//     num_partitions: usize,
+// ) -> Vec<u32> {
+//     let all_user_ids = users_from_baskets(baskets);
+//
+//     all_user_ids.into_iter()
+//         .filter(|user_id| *user_id as usize % num_partitions == partition)
+//         .collect()
+// }
+
 pub fn users_from_baskets(baskets: &Vec<(u32, usize, Vec<usize>)>) -> Vec<u32> {
     let mut user_ids: Vec<u32> = baskets.iter()
         .map(|(user, _, _)| *user)
@@ -14,6 +26,19 @@ pub fn users_from_baskets(baskets: &Vec<(u32, usize, Vec<usize>)>) -> Vec<u32> {
 
     user_ids
 }
+
+// pub fn baskets_from_file_partitioned(
+//     path_to_file: &str,
+//     partition: usize,
+//     num_partitions: usize,
+// ) -> Vec<(u32, usize, Vec<usize>)> {
+//     let (all_baskets, _) = baskets_from_file(path_to_file);
+//
+//     all_baskets.iter()
+//         .filter(|(user_id, _, _)| *user_id as usize % num_partitions == partition)
+//         .map(|(user_id, basket, items)| (*user_id, *basket, items.clone()))
+//         .collect()
+// }
 
 pub fn baskets_from_file(path_to_file: &str) -> (Vec<(u32, usize, Vec<usize>)>, usize) {
 

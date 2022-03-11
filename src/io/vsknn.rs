@@ -46,7 +46,8 @@ fn interactions_from_csv<'a, R>(
         .filter_map(move |result| {
             if result.is_ok() {
                 let raw: (u32, u32, f64) = result.unwrap();
-                let (session_id, item_id, order): SessionItemWithOrder =  (raw.0, raw.1, raw.2.round() as u32);
+                let (session_id, item_id, order): SessionItemWithOrder =
+                    (raw.0, raw.1, raw.2.round() as u32);
 
                 if hash_partition(&session_id, num_partitions) == partition {
                     Some((session_id, item_id, order))
@@ -88,6 +89,7 @@ pub fn read_evolving_sessions_partitioned(
 
             (session_id, session_items)
         })
+        .filter(|(_, items)| items.len() > 1)
         .collect();
 
     evolving_sessions
