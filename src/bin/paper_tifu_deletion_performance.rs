@@ -91,7 +91,7 @@ fn run_experiment(
         baskets_input.flush();
         query_users_input.flush();
 
-        println!("# Training TIFU-kNN model");
+        eprintln!("# Training TIFU-kNN model");
 
         worker.step_while(|| probe.less_than(baskets_input.time()) &&
             probe.less_than(query_users_input.time()));
@@ -124,7 +124,7 @@ fn run_experiment(
                 }
             }
 
-            println!("# Deleting basket {} of user {}", random_basket, random_user);
+            //println!("# Deleting basket {} of user {}", random_basket, random_user);
             baskets_input.advance_to(3 + run);
             query_users_input.advance_to(3 + run);
             baskets_input.flush();

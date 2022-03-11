@@ -25,10 +25,22 @@ fn main() {
     let m: usize = 500;
     let num_samples_to_forget: usize = 10_000;
 
-    for seed in [42, 767, 9000909] {
-        for num_active_sessions in [/*100, 1000,*/ 10_000] {
-            //for batch_size in [1, 10, 100] {
-            for batch_size in [1] {
+    for seed in [42] {//}, 767, 9000909] {
+        for num_active_sessions in [100, 1000, 10_000] {
+            for batch_size in [1, 10, 100] {
+            //for batch_size in [1] {
+            //     run_experiment(
+            //         "ecom1m".to_owned(),
+            //         "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
+            //         "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
+            //         k,
+            //         m,
+            //         num_active_sessions,
+            //         num_samples_to_forget,
+            //         batch_size,
+            //         seed,
+            //     );
+
                 run_experiment(
                     "mkech".to_owned(),
                     "./datasets/session/mkechinovoct-training.txt".to_owned(),
@@ -41,29 +53,29 @@ fn main() {
                     seed,
                 );
 
-                run_experiment(
-                    "rsc15".to_owned(),
-                    "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
-                    "./datasets/session/rsc15-clicks_test.txt".to_owned(),
-                    k,
-                    m,
-                    num_active_sessions,
-                    num_samples_to_forget,
-                    batch_size,
-                    seed,
-                );
-
-                run_experiment(
-                    "ecom60m".to_owned(),
-                    "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
-                    "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
-                    k,
-                    m,
-                    num_active_sessions,
-                    num_samples_to_forget,
-                    batch_size,
-                    seed,
-                );
+                // run_experiment(
+                //     "rsc15".to_owned(),
+                //     "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
+                //     "./datasets/session/rsc15-clicks_test.txt".to_owned(),
+                //     k,
+                //     m,
+                //     num_active_sessions,
+                //     num_samples_to_forget,
+                //     batch_size,
+                //     seed,
+                // );
+                //
+                // run_experiment(
+                //     "ecom60m".to_owned(),
+                //     "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
+                //     "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
+                //     k,
+                //     m,
+                //     num_active_sessions,
+                //     num_samples_to_forget,
+                //     batch_size,
+                //     seed,
+                // );
             }
         }
     }
