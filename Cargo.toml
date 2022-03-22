@@ -28,6 +28,14 @@ path = "src/bin/paper_tifu_deletion_performance.rs"
 name = "paper_vs_deletion_performance"
 path = "src/bin/paper_vs_deletion_performance.rs"
 
+[[bin]]
+name = "paper_vs_incremental_performance"
+path = "src/bin/paper_vs_incremental_performance.rs"
+
+[[bin]]
+name = "paper_tifu_incremental_performance"
+path = "src/bin/paper_tifu_incremental_performance.rs"
+
 # https://github.com/blas-lapack-rs/blas-lapack-rs.github.io/wiki
 [dependencies]
 timely = "0.12.0"
