@@ -1,6 +1,7 @@
 extern crate timely;
 extern crate differential_dataflow;
 
+use std::collections::HashMap;
 use differential_dataflow::input::InputSession;
 
 use snapcase::tifuknn::types::{Basket, HyperParams};
@@ -10,40 +11,41 @@ use snapcase::io::tifuknn::{baskets_from_file, users_from_baskets};
 
 use rand::seq::SliceRandom;
 use std::time::Instant;
+use itertools::Itertools;
 #[allow(deprecated)] use rand::XorShiftRng;
 use rand::prelude::*;
 
 fn main() {
 
-    let num_baskets_to_delete = 300;
+    let num_baskets_to_delete = 700;
     let seed = 789;
 
-    for num_query_users in [10, 100, 1000] {
-        for batch_size in [1, 10, 100] {
+    for num_query_users in [1000] {//[10, 100, 1000] {
+        for batch_size in [10, 100] {//[1, 10, 100] {
 
             if batch_size != 1 && num_query_users != 1000 {
                 continue
             }
 
-            // run_experiment(
-            //     "valuedshopper".to_owned(),
-            //     "./datasets/nbr/VS_history_order.csv".to_owned(),
-            //     seed,
-            //     num_query_users,
-            //     PARAMS_VALUEDSHOPPER,
-            //     num_baskets_to_delete,
-            //     batch_size
-            // );
+            run_experiment(
+                "valuedshopper".to_owned(),
+                "./datasets/nbr/VS_history_order.csv".to_owned(),
+                seed,
+                num_query_users,
+                PARAMS_VALUEDSHOPPER,
+                num_baskets_to_delete,
+                batch_size
+            );
 
-            // run_experiment(
-            //     "instacart".to_owned(),
-            //     "./datasets/nbr/Instacart_history.csv".to_owned(),
-            //     seed,
-            //     num_query_users,
-            //     PARAMS_INSTACART,
-            //     num_baskets_to_delete,
-            //     batch_size
-            // );
+            run_experiment(
+                "instacart".to_owned(),
+                "./datasets/nbr/Instacart_history.csv".to_owned(),
+                seed,
+                num_query_users,
+                PARAMS_INSTACART,
+                num_baskets_to_delete,
+                batch_size
+            );
 
             run_experiment(
                 "tafang".to_owned(),
@@ -112,21 +114,52 @@ fn run_experiment(
         worker.step_while(|| probe.less_than(baskets_input.time()) &&
             probe.less_than(query_users_input.time()));
 
-        let baskets_to_delete: Vec<_> = baskets
-            .choose_multiple(&mut rand::thread_rng(), num_baskets_to_delete).collect();
+        let user_ids: Vec<_> = baskets.iter()
+                              .map(|(user, _, _)| *user)
+                              .sorted()
+                              .dedup()
+                              .collect();
+        // TODO -- REFACTOR THIS INTO ITS OWN FUNCTION -- START
+        let user_ids_with_baskets_to_delete: Vec<_> =
+            user_ids.choose_multiple(&mut rand::thread_rng(), num_baskets_to_delete).collect();
+
+        let mut num_baskets_per_chosen_users = HashMap::new();
+
+        for (user, basket, _) in baskets.iter() {
+            if user_ids_with_baskets_to_delete.contains(&user) {
+                if num_baskets_per_chosen_users.contains_key(user) {
+                    let num_baskets = num_baskets_per_chosen_users.get_mut(user).unwrap();
+                    if basket > *num_baskets {
+                        *num_baskets = basket;
+                    }
+
+                } else {
+                    num_baskets_per_chosen_users.insert(*user, basket);
+                }
+            }
+        }
+
+        let baskets_to_delete: Vec<_> = num_baskets_per_chosen_users.iter()
+            .map(|(user, count)| (user, *(&mut rand::thread_rng().gen_range(0, *count))))
+            .collect();
+
+        // TODO -- REFACTOR THIS INTO ITS OWN FUNCTION -- END
 
         let mut batch_counter = 0;
 
         for run in 0..num_baskets_to_delete {
-            let (random_user, random_basket, items) = *baskets_to_delete.get(run).unwrap();
-
-            baskets_input.update(
-                (*random_user, Basket::new(*random_basket, items.clone())),
-                -1 * *random_basket as isize
-            );
+            let (user_with_basket_to_delete, basket_to_delete) = *baskets_to_delete.get(run).unwrap();
 
             for (user, basket, items) in baskets.iter() {
-                if *user == *random_user && *basket > *random_basket {
+                if *user == *user_with_basket_to_delete && *basket == basket_to_delete {
+                    baskets_input.update(
+                         (*user_with_basket_to_delete,
+                          Basket::new(basket_to_delete, items.clone())),
+                         -1 * basket_to_delete as isize
+                    );
+                }
+
+                if *user == *user_with_basket_to_delete && *basket > basket_to_delete {
                     // Remove the original basket records
                     baskets_input.update(
                         (*user, Basket::new(*basket, items.clone())),
@@ -162,9 +195,9 @@ fn run_experiment(
                     batch_size,
                     latency_in_micros
                 );
-            }
 
-            batch_counter = 0;
+                batch_counter = 0;
+            }
         }
     }).unwrap();
 }
