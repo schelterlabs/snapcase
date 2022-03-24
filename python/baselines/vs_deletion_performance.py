@@ -61,7 +61,7 @@ def run_experiment(dataset, historical_sessions_file, evolving_sessions_file,
             print(f'vs_python,deletion_performance,{dataset},{num_queries},{duration * 1000}')
 
 
-num_queries_to_evaluate = [10000]#[100, 1000, 10000]
+num_queries_to_evaluate = [100, 1000, 10000]
 # Wish we could do more, but the experiment takes already too long
 num_clicks_to_delete = 7
 
@@ -69,10 +69,10 @@ num_clicks_to_delete = 7
 #                "../../datasets/session/bolcom-clicks-1m_test.txt",
 #                num_clicks_to_delete, num_queries_to_evaluate)
 
-run_experiment('rsc15', "../../datasets/session/rsc15-clicks_train_full.txt",
-               "../../datasets/session/rsc15-clicks_test.txt",
-               num_clicks_to_delete, num_queries_to_evaluate)
+#run_experiment('rsc15', "../../datasets/session/rsc15-clicks_train_full.txt",
+#               "../../datasets/session/rsc15-clicks_test.txt",
+#               num_clicks_to_delete, num_queries_to_evaluate)
 
-# run_experiment('ecom60m', "../../datasets/session/bolcom-clicks-50m_train.txt",
-#                "../../datasets/session/bolcom-clicks-50m_test.txt",
-#                num_clicks_to_delete, num_queries_to_evaluate)
+run_experiment('ecom60m', "../../datasets/session/bolcom-clicks-50m_train.txt",
+                "../../datasets/session/bolcom-clicks-50m_test.txt",
+                num_clicks_to_delete, num_queries_to_evaluate)

@@ -231,7 +231,7 @@ def partition_the_data(data_chunk,key_set):
         filtered_key_set.append(key)
 
     training_key_set = filtered_key_set[0:int(4 / 5 * len(filtered_key_set))]
-    print(len(training_key_set))
+    #print(len(training_key_set))
     test_key_set = filtered_key_set[int(4 / 5 * len(filtered_key_set)):]
     return training_key_set,test_key_set
 
@@ -302,13 +302,13 @@ def generate_dictionary_BA(files, attributes_list):
                     counter_table[key] = counter_table[key] + 1
                     count += 1
 
-    print(counter_table)
+    #print(counter_table)
 
     total = 0
     for key in counter_table.keys():
         total = total + counter_table[key]
 
-    print('# dimensions of final vector: ' + str(total) + ' | '+str(count-1))
+    #print('# dimensions of final vector: ' + str(total) + ' | '+str(count-1))
 
     return dictionary_table, total, counter_table
 
@@ -316,9 +316,9 @@ def read_claim2vector_embedding_file_no_vector(files):
     #attributes_list = ['DRG', 'PROVCAT ', 'RVNU_CD', 'DIAG', 'PROC']
     attributes_list = ['MATERIAL_NUMBER']
     # path = '../Minnemudac/'
-    print('start dictionary generation...')
+    #print('start dictionary generation...')
     dictionary_table, num_dim, counter_table = generate_dictionary_BA(files, attributes_list)
-    print('finish dictionary generation*****')
+    #print('finish dictionary generation*****')
     usr_attr = 'CUSTOMER_ID'
     ord_attr = 'ORDER_NUMBER'
 
@@ -543,11 +543,13 @@ def merge_history(sum_history_test,test_key_set,training_sum_history_test,traini
         test_key = test_key_set[test_key_id]
         test_history = sum_history_test[test_key]
         sum_training_history = np.zeros(len(test_history))
-        for indecis in index[test_key_id]:
-            training_key = training_key_set[indecis]
-            sum_training_history += training_sum_history_test[training_key]
 
-        sum_training_history = sum_training_history/len(index[test_key_id])
+        if test_key_id < len(index):
+            for indecis in index[test_key_id]:
+                training_key = training_key_set[indecis]
+                sum_training_history += training_sum_history_test[training_key]
+
+            sum_training_history = sum_training_history/len(index[test_key_id])
 
         merge = test_history*alpha + sum_training_history*(1-alpha)
         merged_history[test_key] = merge

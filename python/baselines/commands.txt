@@ -1,1 +1,2 @@
 python3.9 vs_deletion_performance.py > ../../results_baseline_vs_deletion_performance.txt
+python3.9 tifu_deletion_performance.py > ../../results_baseline_tifu_deletion_performance.txt
