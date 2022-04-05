@@ -1,3 +1,5 @@
+results_*.txt
+datasets/*
 tifu*.txt
 .DS_Store
 rust_impl/target

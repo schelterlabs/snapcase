@@ -26,8 +26,11 @@ fn main() {
     let num_samples_to_forget: usize = 10_000;
 
     for seed in [42, 767, 999] {
-        for num_active_sessions in [10_000] {//[100, 1000, 10_000] {
+        for num_active_sessions in [100, 1000, 10_000] {
             for batch_size in [1, 10, 100] {
+
+            eprintln!("vs_deletion,seed={},queries={}, batch_size={}", seed, queries, batch_size);
+
             //for batch_size in [1000] {
                 run_experiment(
                     "ecom1m".to_owned(),

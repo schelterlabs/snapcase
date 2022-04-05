@@ -200,7 +200,7 @@ pub fn vsknn<T>(
         );
 
         let arranged_item_scores = weighted_item_scores
-            .inspect(|((session, _), time, x)| eprintln!("{}: {} {}", *time, *session, x))
+            //.inspect(|((session, _), time, x)| eprintln!("{}: {} {}", *time, *session, x))
             .arrange_by_key();
 
         arranged_item_scores.stream.probe_with(&mut probe);
