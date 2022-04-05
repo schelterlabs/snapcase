@@ -29,13 +29,6 @@ fn main() {
         for num_active_sessions in [100, 1000, 10_000] {
             for batch_size in [1, 10, 100] {
 
-            eprintln!(
-                "vs_deletion,seed={},queries={}, batch_size={}",
-                seed,
-                num_active_sessions,
-                batch_size
-            );
-
             //for batch_size in [1000] {
                 run_experiment(
                     "ecom1m".to_owned(),
@@ -88,6 +81,14 @@ fn run_experiment(
     batch_size: usize,
     seed: u64,
 ) {
+
+    eprintln!(
+        "vs_deletion,dataset={},seed={},queries={}, batch_size={}",
+        dataset_name,
+        seed,
+        num_active_sessions,
+        batch_size
+    );
 
     //let historical_sessions = io::vsknn::read_historical_sessions(&*historical_sessions_file);
     //let num_historical_sessions: usize = historical_sessions.len();
