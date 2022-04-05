@@ -4,9 +4,10 @@ extern crate differential_dataflow;
 pub mod types;
 pub mod dataflow;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use std::collections::hash_map::Entry;
+use std::fmt::Display;
 
 use timely::dataflow::operators::probe::Handle;
 use timely::dataflow::operators::Probe;
@@ -37,7 +38,7 @@ pub fn update_recommendations(
     probe: &Handle<usize>,
     trace: &mut Trace<SessionId, ItemScore, usize, isize>,
     latency_in_micros: &mut u128
-) {
+) -> usize {
 
     let start = Instant::now();
 
@@ -58,6 +59,8 @@ pub fn update_recommendations(
     //     time,
     //     duration.as_micros()
     // );
+
+    let mut changed_keys = HashSet::new();
 
     let time_of_interest = time - 1;
 
@@ -80,6 +83,7 @@ pub fn update_recommendations(
                             let (item, _score) = value;
 
                             if let Entry::Occupied(entry) = recommendations.entry(*key) {
+                                changed_keys.insert(*key);
                                 entry.into_mut().remove(&item);
                             }
                         }
@@ -108,6 +112,8 @@ pub fn update_recommendations(
                         if *time == time_of_interest && *diff > 0 {
                             assert_eq!((*diff).abs(), 1);
 
+                            changed_keys.insert(*key);
+
                             let recommendations_for_session = recommendations.entry(*key)
                                 .or_insert(HashMap::new());
 
@@ -129,7 +135,9 @@ pub fn update_recommendations(
     trace.set_physical_compaction(frontier);
     trace.set_logical_compaction(frontier);
 
+    changed_keys.len()
 }
+
 pub fn vsknn<T>(
     worker: &mut Worker<Allocator>,
     historical_sessions_input: &mut InputSession<T, OrderedSessionItem, isize>,
@@ -138,7 +146,7 @@ pub fn vsknn<T>(
     m: usize,
     num_total_sessions: usize,
 ) -> (ProbeHandle<T>, Trace<SessionId, ItemScore, T, isize>)
-    where T: Timestamp + TotalOrder + Lattice + Refines<()> {
+    where T: Timestamp + TotalOrder + Lattice + Refines<()> + Display {
 
     worker.dataflow(|scope| {
 
@@ -191,7 +199,9 @@ pub fn vsknn<T>(
             &item_idfs
         );
 
-        let arranged_item_scores = weighted_item_scores.arrange_by_key();
+        let arranged_item_scores = weighted_item_scores
+            .inspect(|((session, _), time, x)| eprintln!("{}: {} {}", *time, *session, x))
+            .arrange_by_key();
 
         arranged_item_scores.stream.probe_with(&mut probe);
 

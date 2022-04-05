@@ -152,7 +152,7 @@ fn run_experiment(
         let mut latency_in_micros: u128 = 0;
 
         time += 1;
-        update_recommendations(
+        let num_updates = update_recommendations(
             &mut recommmendations,
             time,
             &mut evolving_sessions_input,
@@ -188,14 +188,15 @@ fn run_experiment(
                 );
 
                 println!(
-                    "vs,incremental_performance,{},{},{},{},{},{},{}",
+                    "vs,incremental_performance,{},{},{},{},{},{},{},{}",
                     dataset_name,
                     seed,
                     worker.index(),
                     worker.peers(),
                     batch_size,
                     num_active_sessions,
-                    latency_in_micros
+                    latency_in_micros,
+                    num_updates
                 );
 
                 batch_counter = 0

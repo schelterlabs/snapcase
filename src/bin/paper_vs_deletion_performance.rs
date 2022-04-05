@@ -25,26 +25,14 @@ fn main() {
     let m: usize = 500;
     let num_samples_to_forget: usize = 10_000;
 
-    for seed in [42] {//}, 767, 9000909] {
-        for num_active_sessions in [100, 1000, 10_000] {
+    for seed in [42, 767, 999] {
+        for num_active_sessions in [10_000] {//[100, 1000, 10_000] {
             for batch_size in [1, 10, 100] {
-            //for batch_size in [1] {
-            //     run_experiment(
-            //         "ecom1m".to_owned(),
-            //         "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
-            //         "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
-            //         k,
-            //         m,
-            //         num_active_sessions,
-            //         num_samples_to_forget,
-            //         batch_size,
-            //         seed,
-            //     );
-
+            //for batch_size in [1000] {
                 run_experiment(
-                    "mkech".to_owned(),
-                    "./datasets/session/mkechinovoct-training.txt".to_owned(),
-                    "./datasets/session/mkechinovoct-test.txt".to_owned(),
+                    "ecom1m".to_owned(),
+                    "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
+                    "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
                     k,
                     m,
                     num_active_sessions,
@@ -53,29 +41,29 @@ fn main() {
                     seed,
                 );
 
-                // run_experiment(
-                //     "rsc15".to_owned(),
-                //     "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
-                //     "./datasets/session/rsc15-clicks_test.txt".to_owned(),
-                //     k,
-                //     m,
-                //     num_active_sessions,
-                //     num_samples_to_forget,
-                //     batch_size,
-                //     seed,
-                // );
-                //
-                // run_experiment(
-                //     "ecom60m".to_owned(),
-                //     "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
-                //     "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
-                //     k,
-                //     m,
-                //     num_active_sessions,
-                //     num_samples_to_forget,
-                //     batch_size,
-                //     seed,
-                // );
+                run_experiment(
+                    "rsc15".to_owned(),
+                    "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
+                    "./datasets/session/rsc15-clicks_test.txt".to_owned(),
+                    k,
+                    m,
+                    num_active_sessions,
+                    num_samples_to_forget,
+                    batch_size,
+                    seed,
+                );
+
+                run_experiment(
+                    "ecom60m".to_owned(),
+                    "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
+                    "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
+                    k,
+                    m,
+                    num_active_sessions,
+                    num_samples_to_forget,
+                    batch_size,
+                    seed,
+                );
             }
         }
     }
@@ -201,7 +189,7 @@ fn run_experiment(
                 let mut latency_in_micros: u128 = 0;
 
                 time += 1;
-                update_recommendations(
+                let num_changes = update_recommendations(
                     &mut recommmendations,
                     time,
                     &mut evolving_sessions_input,
@@ -213,14 +201,15 @@ fn run_experiment(
                 );
 
                 println!(
-                    "vs,deletion_performance,{},{},{},{},{},{},{}",
+                    "vs,deletion_performance,{},{},{},{},{},{},{},{}",
                     dataset_name,
                     seed,
                     worker.index(),
                     worker.peers(),
                     batch_size,
                     num_active_sessions,
-                    latency_in_micros
+                    latency_in_micros,
+                    num_changes
                 );
 
                 batch_counter = 0

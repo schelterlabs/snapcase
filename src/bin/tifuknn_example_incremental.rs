@@ -24,7 +24,7 @@ fn main() {
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
         let mut query_users_input: InputSession<_, u32,_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input, &mut query_users_input, params);
+        let (probe, _) = tifu_knn(worker, &mut baskets_input, &mut query_users_input, params);
 
         query_users_input.insert(0);
 

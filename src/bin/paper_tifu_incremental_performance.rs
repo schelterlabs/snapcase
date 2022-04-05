@@ -5,11 +5,10 @@ use differential_dataflow::input::InputSession;
 
 use snapcase::tifuknn::types::{Basket, HyperParams};
 use snapcase::tifuknn::hyperparams::{PARAMS_INSTACART, PARAMS_TAFANG, PARAMS_VALUEDSHOPPER};
-use snapcase::tifuknn::tifu_knn;
+use snapcase::tifuknn::{tifu_knn, update_recommendations};
 use snapcase::io::tifuknn::{baskets_from_file, users_from_baskets};
 
 use rand::seq::SliceRandom;
-use std::time::Instant;
 #[allow(deprecated)] use rand::XorShiftRng;
 use rand::prelude::*;
 
@@ -18,17 +17,19 @@ fn main() {
     let num_baskets_to_add = 1000;
     let seed = 789;
 
+    //for num_query_users in [10, 100, 1000] {
+    //    for batch_size in [1, 10, 100] {
     for num_query_users in [10, 100, 1000] {
-        for batch_size in [1, 10, 100] {
+        for batch_size in [10] {
 
-            if batch_size != 1 && num_query_users != 1000 {
-                eprintln!(
-                    "# Skipping num_query_users={}, batch_size={}",
-                    num_query_users,
-                    batch_size
-                );
-                continue
-            }
+            // if batch_size > 10 && num_query_users != 1000 {
+            //     eprintln!(
+            //         "# Skipping num_query_users={}, batch_size={}",
+            //         num_query_users,
+            //         batch_size
+            //     );
+            //     continue
+            // }
 
             run_experiment(
                 "valuedshopper".to_owned(),
@@ -82,7 +83,7 @@ fn run_experiment(
         let mut baskets_input: InputSession<_, (u32, Basket),_> = InputSession::new();
         let mut query_users_input: InputSession<_, u32,_> = InputSession::new();
 
-        let probe = tifu_knn(worker, &mut baskets_input, &mut query_users_input, hyperparams);
+        let (probe, mut trace) = tifu_knn(worker, &mut baskets_input, &mut query_users_input, hyperparams);
 
         baskets_input.advance_to(1);
         query_users_input.advance_to(1);
@@ -106,10 +107,10 @@ fn run_experiment(
             }
         }
 
-        baskets_input.advance_to(2);
-        query_users_input.advance_to(2);
-        baskets_input.flush();
-        query_users_input.flush();
+        // baskets_input.advance_to(2);
+        // query_users_input.advance_to(2);
+        // baskets_input.flush();
+        // query_users_input.flush();
 
         eprintln!(
             "# Training TIFU-kNN model for {} query users and batch size {}",
@@ -117,8 +118,20 @@ fn run_experiment(
             batch_size
         );
 
-        worker.step_while(|| probe.less_than(baskets_input.time()) &&
-            probe.less_than(query_users_input.time()));
+        let mut latency_setup = 0_u128;
+        let _ = update_recommendations(
+            2,
+            &mut baskets_input,
+            &mut query_users_input,
+            worker,
+            &probe,
+            &mut trace,
+            &mut latency_setup
+        );
+
+        //
+        // worker.step_while(|| probe.less_than(baskets_input.time()) &&
+        //     probe.less_than(query_users_input.time()));
 
         let mut batch_counter = 0;
 
@@ -131,22 +144,35 @@ fn run_experiment(
 
             if batch_counter == batch_size {
 
-                baskets_input.advance_to(3 + run);
-                query_users_input.advance_to(3 + run);
-                baskets_input.flush();
-                query_users_input.flush();
+                // baskets_input.advance_to(3 + run);
+                // query_users_input.advance_to(3 + run);
+                // baskets_input.flush();
+                // query_users_input.flush();
+                //
+                // let now = Instant::now();
+                // worker.step_while(|| probe.less_than(baskets_input.time()) &&
+                //     probe.less_than(query_users_input.time()));
+                // let latency_in_micros = now.elapsed().as_micros();
 
-                let now = Instant::now();
-                worker.step_while(|| probe.less_than(baskets_input.time()) &&
-                    probe.less_than(query_users_input.time()));
-                let latency_in_micros = now.elapsed().as_micros();
+                let mut latency_in_micros = 0_u128;
+
+                let num_updates = update_recommendations(
+                    3 + run,
+                    &mut baskets_input,
+                    &mut query_users_input,
+                    worker,
+                    &probe,
+                    &mut trace,
+                    &mut latency_in_micros
+                );
 
                 println!(
-                    "tifu,incremental_performance,{},{},{},{}",
+                    "tifu,incremental_performance,{},{},{},{},{}",
                     dataset_name,
                     num_query_users,
                     batch_size,
-                    latency_in_micros
+                    latency_in_micros,
+                    num_updates
                 );
 
                 batch_counter = 0;

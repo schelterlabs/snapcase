@@ -23,57 +23,48 @@ fn main() {
 
     let k: usize = 100;
     let m: usize = 500;
-    let num_samples_to_add: usize = 10_000;
 
-    for seed in [42] {//}, 767, 9000909] {
+    let batch_size = 10;
+    let num_repetitions: usize = 1000;
+
+    for seed in [42, 767, 999] {
         for num_active_sessions in [100, 1000, 10_000] {
-            for batch_size in [1, 10, 100] {
 
-                if batch_size != 1 && num_query_users != 10_000 {
-                    eprintln!(
-                        "# Skipping num_query_users={}, batch_size={}",
-                        num_query_users,
-                        batch_size
-                    );
-                    continue
-                }
+            run_experiment(
+                "ecom1m".to_owned(),
+                "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
+                "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
+                k,
+                m,
+                num_active_sessions,
+                num_repetitions,
+                batch_size,
+                seed,
+            );
 
-                run_experiment(
-                    "ecom1m".to_owned(),
-                    "./datasets/session/bolcom-clicks-1m_train.txt".to_owned(),
-                    "./datasets/session/bolcom-clicks-1m_test.txt".to_owned(),
-                    k,
-                    m,
-                    num_active_sessions,
-                    num_samples_to_add,
-                    batch_size,
-                    seed,
-                );
+            run_experiment(
+                "rsc15".to_owned(),
+                "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
+                "./datasets/session/rsc15-clicks_test.txt".to_owned(),
+                k,
+                m,
+                num_active_sessions,
+                num_repetitions,
+                batch_size,
+                seed,
+            );
 
-                run_experiment(
-                    "rsc15".to_owned(),
-                    "./datasets/session/rsc15-clicks_train_full.txt".to_owned(),
-                    "./datasets/session/rsc15-clicks_test.txt".to_owned(),
-                    k,
-                    m,
-                    num_active_sessions,
-                    num_samples_to_add,
-                    batch_size,
-                    seed,
-                );
-
-                run_experiment(
-                    "ecom60m".to_owned(),
-                    "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
-                    "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
-                    k,
-                    m,
-                    num_active_sessions,
-                    num_samples_to_add,
-                    batch_size,
-                    seed,
-                );
-            }
+            run_experiment(
+                "ecom60m".to_owned(),
+                "./datasets/session/bolcom-clicks-50m_train.txt".to_owned(),
+                "./datasets/session/bolcom-clicks-50m_test.txt".to_owned(),
+                k,
+                m,
+                num_active_sessions,
+                num_repetitions,
+                batch_size,
+                seed,
+            );
         }
     }
 }
@@ -85,10 +76,13 @@ fn run_experiment(
     k: usize,
     m: usize,
     num_active_sessions: usize,
-    num_samples_to_add: usize,
+    num_repetitions: usize,
     batch_size: usize,
     seed: u64,
 ) {
+
+    assert!(batch_size > 1);
+
     timely::execute_from_args(std::env::args(), move |worker| {
 
         #[allow(deprecated)] let mut rng = XorShiftRng::seed_from_u64(seed);
@@ -123,8 +117,14 @@ fn run_experiment(
             num_historical_sessions,
         );
 
+        let num_samples_to_add = num_repetitions * (batch_size - 1);
+
         let (historical_sessions, clicks_to_add) = historical_sessions
             .split_at_mut(num_historical_sessions - num_samples_to_add);
+
+        // TODO I don't like the additional copy here
+        let cloned_sessions = historical_sessions.to_vec().clone();
+        let clicks_to_delete = cloned_sessions.choose_multiple(&mut rng, num_repetitions);
 
 
         eprintln!("# Loading {} historical interactions", historical_sessions.len());
@@ -175,41 +175,43 @@ fn run_experiment(
 
         eprintln!("# Indexed data for {} evolving sessions", num_active_sessions);
 
-        let mut batch_counter = 0;
 
-        for (session, item, order) in clicks_to_add {
-            historical_sessions_input.insert((*session, (*item, Order::new(*order))));
+        let batched_clicks_to_add = clicks_to_add.chunks(batch_size - 1);
 
-            batch_counter += 1;
+        for (click_batch_to_add, click_to_delete) in batched_clicks_to_add.zip(clicks_to_delete) {
 
-            if batch_counter == batch_size {
-                let mut latency_in_micros: u128 = 0;
-
-                time += 1;
-                update_recommendations(
-                    &mut recommmendations,
-                    time,
-                    &mut evolving_sessions_input,
-                    &mut historical_sessions_input,
-                    worker,
-                    &probe,
-                    &mut trace,
-                    &mut latency_in_micros,
-                );
-
-                println!(
-                    "vs,mixed_performance,{},{},{},{},{},{},{}",
-                    dataset_name,
-                    seed,
-                    worker.index(),
-                    worker.peers(),
-                    batch_size,
-                    num_active_sessions,
-                    latency_in_micros
-                );
-
-                batch_counter = 0
+            for (session, item, order) in click_batch_to_add {
+                historical_sessions_input.insert((*session, (*item, Order::new(*order))));
             }
+
+            let (session, item, order) = click_to_delete;
+            historical_sessions_input.remove((*session, (*item, Order::new(*order))));
+
+            let mut latency_in_micros: u128 = 0;
+
+            time += 1;
+            let num_updates = update_recommendations(
+                &mut recommmendations,
+                time,
+                &mut evolving_sessions_input,
+                &mut historical_sessions_input,
+                worker,
+                &probe,
+                &mut trace,
+                &mut latency_in_micros,
+            );
+
+            println!(
+                "vs,mixed_performance,{},{},{},{},{},{},{},{}",
+                dataset_name,
+                seed,
+                worker.index(),
+                worker.peers(),
+                batch_size,
+                num_active_sessions,
+                latency_in_micros,
+                num_updates
+            );
         }
 
     }).unwrap();

@@ -23,7 +23,7 @@ fn main() {
             query_users_input.insert(user);
         }
 
-        let probe = tifu_knn(
+        let (probe, _) = tifu_knn(
             worker,
             &mut baskets_input,
             &mut query_users_input,
