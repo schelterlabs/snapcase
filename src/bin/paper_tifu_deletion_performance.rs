@@ -16,7 +16,7 @@ use rand::prelude::*;
 
 fn main() {
 
-    let num_baskets_to_delete = 700;
+    let num_baskets_to_delete = 1000;
 
     for seed in [42, 767, 999] {
         for num_query_users in [10, 100, 1000] {
@@ -70,6 +70,15 @@ fn run_experiment(
     batch_size: usize
 )
 {
+    eprintln!(
+        "tifu_deletion,dataset={},seed={},queries={}, batch_size={}",
+        dataset_name,
+        seed,
+        num_query_users,
+        batch_size
+    );
+
+
     timely::execute_from_args(std::env::args(), move |worker| {
 
         #[allow(deprecated)] let mut rng = XorShiftRng::seed_from_u64(seed);
