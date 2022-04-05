@@ -29,7 +29,12 @@ fn main() {
         for num_active_sessions in [100, 1000, 10_000] {
             for batch_size in [1, 10, 100] {
 
-            eprintln!("vs_deletion,seed={},queries={}, batch_size={}", seed, queries, batch_size);
+            eprintln!(
+                "vs_deletion,seed={},queries={}, batch_size={}",
+                seed,
+                num_active_sessions,
+                batch_size
+            );
 
             //for batch_size in [1000] {
                 run_experiment(
