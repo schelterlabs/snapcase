@@ -61,7 +61,7 @@ def run_experiment(dataset, historical_sessions_file, evolving_sessions_file,
             print(f'vs_python,deletion_performance,{dataset},{num_queries},{duration * 1000}')
 
 
-num_queries_to_evaluate in [100, 1000, 10000]
+num_queries_to_evaluate = [100, 1000, 10000]
 # Wish we could do more, but the experiment takes already too long
 num_clicks_to_delete = 20
 
