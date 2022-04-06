@@ -25,7 +25,7 @@ fn main() {
     let m: usize = 500;
     let num_samples_to_add: usize = 10_000;
 
-    for seed in [42] {//}, 767, 9000909] {
+    for seed in [42, 767, 999] {
         for num_active_sessions in [100, 1000, 10_000] {
             for batch_size in [1, 10, 100] {
                 run_experiment(
@@ -79,6 +79,15 @@ fn run_experiment(
     batch_size: usize,
     seed: u64,
 ) {
+
+    eprintln!(
+        "vs_incremental,dataset={},seed={},queries={}, batch_size={}",
+        dataset_name,
+        seed,
+        num_active_sessions,
+        batch_size
+    );
+
     timely::execute_from_args(std::env::args(), move |worker| {
 
         #[allow(deprecated)] let mut rng = XorShiftRng::seed_from_u64(seed);
@@ -152,7 +161,7 @@ fn run_experiment(
         let mut latency_in_micros: u128 = 0;
 
         time += 1;
-        let num_updates = update_recommendations(
+        let _ = update_recommendations(
             &mut recommmendations,
             time,
             &mut evolving_sessions_input,
@@ -176,7 +185,7 @@ fn run_experiment(
                 let mut latency_in_micros: u128 = 0;
 
                 time += 1;
-                update_recommendations(
+                let num_updates = update_recommendations(
                     &mut recommmendations,
                     time,
                     &mut evolving_sessions_input,
