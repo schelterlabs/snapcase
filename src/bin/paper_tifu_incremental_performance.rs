@@ -18,7 +18,7 @@ fn main() {
 
     for seed in [42, 767, 999] {
         for num_query_users in [10, 100, 1000] {
-            for batch_size in [10] {
+            for batch_size in [1, 10, 100] {
 
                 if batch_size != 1 && num_query_users != 1000 {
                     continue
