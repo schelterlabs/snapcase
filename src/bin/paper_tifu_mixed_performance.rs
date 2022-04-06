@@ -17,40 +17,40 @@ use rand::prelude::*;
 fn main() {
 
     let num_repetitions = 100;
-    let seed = 789;
     let batch_size = 10;
 
-    for num_query_users in [10, 100, 1000] {
+    for seed in [42, 767, 999] {
+        for num_query_users in [10, 100, 1000] {
+            run_experiment(
+                "valuedshopper".to_owned(),
+                "./datasets/nbr/VS_history_order.csv".to_owned(),
+                seed,
+                num_query_users,
+                PARAMS_VALUEDSHOPPER,
+                num_repetitions,
+                batch_size
+            );
 
-        run_experiment(
-            "valuedshopper".to_owned(),
-            "./datasets/nbr/VS_history_order.csv".to_owned(),
-            seed,
-            num_query_users,
-            PARAMS_VALUEDSHOPPER,
-            num_repetitions,
-            batch_size
-        );
+            run_experiment(
+                "instacart".to_owned(),
+                "./datasets/nbr/Instacart_history.csv".to_owned(),
+                seed,
+                num_query_users,
+                PARAMS_INSTACART,
+                num_repetitions,
+                batch_size
+            );
 
-        run_experiment(
-            "instacart".to_owned(),
-            "./datasets/nbr/Instacart_history.csv".to_owned(),
-            seed,
-            num_query_users,
-            PARAMS_INSTACART,
-            num_repetitions,
-            batch_size
-        );
-
-        run_experiment(
-            "tafang".to_owned(),
-            "./datasets/nbr/TaFang_history_NB.csv".to_owned(),
-            seed,
-            num_query_users,
-            PARAMS_TAFANG,
-            num_repetitions,
-            batch_size
-        );
+            run_experiment(
+                "tafang".to_owned(),
+                "./datasets/nbr/TaFang_history_NB.csv".to_owned(),
+                seed,
+                num_query_users,
+                PARAMS_TAFANG,
+                num_repetitions,
+                batch_size
+            );
+        }
     }
 }
 
@@ -64,6 +64,15 @@ fn run_experiment(
     batch_size: usize
 )
 {
+    eprintln!(
+        "tifu_mixed,dataset={},seed={},queries={}, batch_size={}",
+        dataset_name,
+        seed,
+        num_query_users,
+        batch_size
+    );
+
+
     timely::execute_from_args(std::env::args(), move |worker| {
 
         #[allow(deprecated)] let mut rng = XorShiftRng::seed_from_u64(seed);

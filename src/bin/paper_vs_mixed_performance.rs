@@ -83,6 +83,14 @@ fn run_experiment(
 
     assert!(batch_size > 1);
 
+    eprintln!(
+        "vs_mixed,dataset={},seed={},queries={}, batch_size={}",
+        dataset_name,
+        seed,
+        num_active_sessions,
+        batch_size
+    );
+
     timely::execute_from_args(std::env::args(), move |worker| {
 
         #[allow(deprecated)] let mut rng = XorShiftRng::seed_from_u64(seed);
