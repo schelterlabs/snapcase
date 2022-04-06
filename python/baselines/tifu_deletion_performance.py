@@ -98,19 +98,23 @@ def run_experiment(dataset, num_queries_to_evaluate, num_baskets_to_delete, bask
 
 
 num_queries_to_evaluate = [10, 100, 1000]
-num_baskets_to_delete = 7
+num_baskets_to_delete = 100
 
-run_experiment(dataset = 'tafang', num_queries_to_evaluate=num_queries_to_evaluate,
-               num_baskets_to_delete=num_baskets_to_delete,
-               baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/TaFang_history_NB.csv',
-               num_nearest_neighbors=300, within_decay_rate=0.9, group_decay_rate=0.7, alpha=0.7, group_size=7)
+for seed in [42, 767, 999]:
 
-run_experiment(dataset = 'instacart', num_queries_to_evaluate=num_queries_to_evaluate,
-               num_baskets_to_delete=num_baskets_to_delete,
-               baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/Instacart_history.csv',
-               num_nearest_neighbors=900, within_decay_rate=0.9, group_decay_rate=0.7, alpha=0.9, group_size=3)
+    np.random.seed(seed)
 
-run_experiment(dataset = 'valuedshopper', num_queries_to_evaluate=num_queries_to_evaluate,
-               num_baskets_to_delete=num_baskets_to_delete,
-               baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/VS_history_order.csv',
-               num_nearest_neighbors=300, within_decay_rate=1.0, group_decay_rate=6, alpha=0.9, group_size=7)
+    run_experiment(dataset = 'tafang', num_queries_to_evaluate=num_queries_to_evaluate,
+                   num_baskets_to_delete=num_baskets_to_delete,
+                   baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/TaFang_history_NB.csv',
+                   num_nearest_neighbors=300, within_decay_rate=0.9, group_decay_rate=0.7, alpha=0.7, group_size=7)
+
+    run_experiment(dataset = 'instacart', num_queries_to_evaluate=num_queries_to_evaluate,
+                   num_baskets_to_delete=num_baskets_to_delete,
+                   baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/Instacart_history.csv',
+                   num_nearest_neighbors=900, within_decay_rate=0.9, group_decay_rate=0.7, alpha=0.9, group_size=3)
+
+    run_experiment(dataset = 'valuedshopper', num_queries_to_evaluate=num_queries_to_evaluate,
+                   num_baskets_to_delete=num_baskets_to_delete,
+                   baskets_file = '/Users/ssc/projects/snapcase/datasets/nbr/VS_history_order.csv',
+                   num_nearest_neighbors=300, within_decay_rate=1.0, group_decay_rate=6, alpha=0.9, group_size=7)
