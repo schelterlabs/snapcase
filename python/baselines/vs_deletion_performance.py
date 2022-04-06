@@ -34,7 +34,7 @@ def run_experiment(dataset, historical_sessions_file, evolving_sessions_file,
 
     for num_queries in num_queries_to_evaluate:
 
-        if dataset = "ecom60m" and num_queries > 100:
+        if dataset == "ecom60m" and num_queries > 100:
             print(f"#Skipping num_queries={num_queries} for ecom60m")
             continue
 
