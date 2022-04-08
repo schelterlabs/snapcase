@@ -217,7 +217,10 @@ def temporal_decay_sum_history(data_set, key_set, output_size,group_size,within_
                 print( 'idx: '+ str(idx))
                 print('len(grouped_list): ' + str(len(grouped_list)))
             his_vec += grouped_list[idx]*decayed_val
-        sum_history[key] = his_vec/real_group_size
+
+        if real_group_size > 0:
+            his_vec = his_vec/real_group_size
+        sum_history[key] = his_vec
         # sum_history[key] = np.multiply(his_vec / real_group_size, IDF)
     return sum_history
 
