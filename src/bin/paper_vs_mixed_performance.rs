@@ -130,9 +130,11 @@ fn run_experiment(
         let (historical_sessions, clicks_to_add) = historical_sessions
             .split_at_mut(num_historical_sessions - num_samples_to_add);
 
-        // TODO I don't like the additional copy here
         let cloned_sessions = historical_sessions.to_vec().clone();
-        let clicks_to_delete = cloned_sessions.choose_multiple(&mut rng, num_repetitions);
+        let clicks_to_delete: Vec<_> = cloned_sessions
+            .choose_multiple(&mut rng, num_repetitions)
+            .map(|x| *x)
+            .collect();
 
 
         eprintln!("# Loading {} historical interactions", historical_sessions.len());
@@ -167,6 +169,13 @@ fn run_experiment(
             }
         }
 
+
+        // We need to also add the clicks that we want to delete later
+        for click_to_delete in &clicks_to_delete {
+            let (session, item, order) = click_to_delete;
+            historical_sessions_input.insert((*session, (*item, Order::new(*order))));
+        }
+
         let mut latency_in_micros: u128 = 0;
 
         time += 1;
@@ -193,7 +202,7 @@ fn run_experiment(
             }
 
             let (session, item, order) = click_to_delete;
-            historical_sessions_input.remove((*session, (*item, Order::new(*order))));
+            historical_sessions_input.remove((session, (item, Order::new(order))));
 
             let mut latency_in_micros: u128 = 0;
 
